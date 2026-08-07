@@ -1,11 +1,14 @@
-import { Directive, ElementRef, Input } from '@angular/core';
+import { Directive, ElementRef, Input, inject } from '@angular/core';
 
 type Attributes = { [attr: string]: any } | undefined;
 
 @Directive({
-    selector: '[ofSetAttrs]'
+    selector: '[ofSetAttrs]',
+    standalone: true
 })
 export class SetAttrsDirective {
+    private readonly el = inject(ElementRef);
+
     private _attrs: Attributes = undefined;
 
     @Input('ofSetAttrs')
@@ -14,7 +17,7 @@ export class SetAttrsDirective {
         this.applyAttributes();
     }
 
-    constructor(private el: ElementRef) {
+    constructor() {
         this.applyAttributes();
     }
 

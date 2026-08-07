@@ -1,6 +1,6 @@
 # Ooffice Virtual Tree 🥦
 
-This is a virtual tree for angular 2+. It has excellent performance for 10s of thousands of items, supports search, expand/collapse all, templating, drag and drop, lazy load, keyboard navigation.
+This is a virtual tree for Angular (requires Angular 18). It has excellent performance for 10s of thousands of items, supports search, expand/collapse all, templating, drag and drop, lazy load, keyboard navigation.
 
 ## Features
 - **Configurability** - *Easy out-of-the-box settings can be easily overridden to support exotic scenarios*
@@ -34,7 +34,23 @@ To summarize, this tree is built around this recipe (which works for any hierarc
 
 ## Quick Setup
 
-1. Import the module
+1. Import the component
+
+The components are standalone, so import them directly where you use them:
+
+```typescript
+import { OfBasicTreeComponent, OfVirtualTreeComponent } from 'of-tree';
+
+@Component({
+  standalone: true,
+  imports: [OfBasicTreeComponent],
+  ...
+})
+export class MyComponent { }
+```
+
+If you are still on NgModules, `OfVirtualTreeModule` exports both components and works unchanged:
+
 ```typescript
 import { OfVirtualTreeModule } from 'of-tree';
 
@@ -49,8 +65,11 @@ export class AppModule { }
 2. Use the `of-basic-tree` component
 ```typescript
 import { Component } from '@angular/core';
+import { OfBasicTreeComponent } from 'of-tree';
 
 @Component({
+    standalone: true,
+    imports: [OfBasicTreeComponent],
     template: `
         <div class="container">
             <of-basic-tree [(selection)]="selectedItem" [data]="treeData"></of-basic-tree>

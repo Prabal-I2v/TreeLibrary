@@ -1,35 +1,64 @@
-@import 'prettify-overrides';
-
-/* You can add global styles to this file, and also import other style files */
-body,
+/* Global styles for the of-tree demo. */
 html,
-app-root {
-    height: 100%;
-    width: 100%;
-    color: #000e;
+body {
     margin: 0;
     padding: 0;
-    font-family: 'Roboto', sans-serif;
+    color: #000e;
+    background: #f6f7f9;
+    font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+    font-size: 15px;
 }
 
-.app-component {
-    background: #fff;
-    padding: 1rem 1.5rem;
-    border: solid 5px #0002;
-    max-width: 800px;
-    box-shadow: 0 0 8px #0008 inset;
-}
+.toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    flex-wrap: wrap;
 
-.markdown-body {
-    box-sizing: border-box;
-    min-width: 200px;
-    max-width: 980px;
-    margin: 0 auto;
-    padding: 45px;
-}
+    button {
+        font: inherit;
+        font-size: 0.85rem;
+        padding: 0.3rem 0.7rem;
+        border: solid 1px #0002;
+        border-radius: 4px;
+        background: #fff;
+        cursor: pointer;
 
-@media (max-width: 767px) {
-    .markdown-body {
-        padding: 15px;
+        &:hover {
+            background: #eef2f7;
+        }
     }
+
+    input[type='search'] {
+        font: inherit;
+        font-size: 0.85rem;
+        padding: 0.3rem 0.6rem;
+        border: solid 1px #0002;
+        border-radius: 4px;
+        min-width: 14rem;
+    }
+
+    button.link {
+        border: none;
+        background: none;
+        padding: 0.3rem 0.2rem;
+        color: #2d7ff9;
+        text-decoration: underline;
+
+        &:hover {
+            background: none;
+        }
+    }
+
+    .hint {
+        color: #0007;
+        font-size: 0.8rem;
+    }
+}
+
+.stats {
+    color: #0009;
+    font-size: 0.85rem;
+    margin: 0.5rem 0 0;
 }

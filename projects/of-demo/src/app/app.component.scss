@@ -1,0 +1,40 @@
+:host {
+    display: block;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+}
+
+header {
+    border-bottom: solid 1px #0002;
+    margin-bottom: 2rem;
+
+    h1 {
+        margin: 0;
+        font-size: 2rem;
+    }
+    p {
+        color: #0009;
+    }
+}
+
+section {
+    margin-bottom: 3rem;
+
+    h2 {
+        font-size: 1.25rem;
+        margin-bottom: 0.25rem;
+    }
+    > p {
+        color: #0009;
+        margin-top: 0;
+        line-height: 1.5;
+    }
+}
+
+code {
+    background: #0000000d;
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
+    font-family: 'Ubuntu Mono', monospace;
+}

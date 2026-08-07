@@ -1,5 +1,6 @@
-import { Component, Input, Output, EventEmitter, ViewChild, AfterViewInit, OnDestroy, ElementRef, HostListener } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ViewChild, AfterViewInit, OnDestroy, ElementRef, HostListener, inject } from '@angular/core';
 import { OfVirtualTree, OfTreeConfig, OfVirtualTreeComponent } from '../virtual-tree';
+import { SetAttrsDirective } from '../set-attrs.directive';
 import { Node } from '../../models';
 
 /**
@@ -117,8 +118,10 @@ interface DragArgs<T> {
 
 @Component({
     selector: 'of-basic-tree',
-    templateUrl: `./basic-tree.component.html`,
-    styleUrls: [`./basic-tree.component.style.scss`]
+    standalone: true,
+    imports: [OfVirtualTreeComponent, SetAttrsDirective],
+    templateUrl: './basic-tree.component.html',
+    styleUrl: './basic-tree.component.style.scss'
 })
 export class OfBasicTreeComponent implements AfterViewInit, OnDestroy {
     private disposers: (() => void)[] = [];
@@ -154,7 +157,7 @@ export class OfBasicTreeComponent implements AfterViewInit, OnDestroy {
         move: () => Promise.resolve(),
         getDragData: () => '{}'
     } as VtBasicTreeConfig<any>;
-    private hostBox?: ClientRect;
+    private hostBox?: DOMRect;
 
     /**
      * @ignore
@@ -278,7 +281,9 @@ export class OfBasicTreeComponent implements AfterViewInit, OnDestroy {
         }
     }
 
-    constructor(private host: ElementRef<HTMLElement>) {
+    private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+
+    constructor() {
         this._model = new OfVirtualTree<any>(this.config);
         this.bindModelEvents();
         this.itemHeight = 1.5 * parseFloat(window.getComputedStyle(document.body).fontSize || '16');

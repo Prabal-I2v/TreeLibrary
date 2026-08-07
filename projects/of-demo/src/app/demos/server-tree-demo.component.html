@@ -1,0 +1,90 @@
+<div class="toolbar">
+    <button type="button" (click)="expandAll()">Expand all</button>
+    <button type="button" (click)="collapseAll()">Collapse all</button>
+
+    <input
+        type="search"
+        placeholder="Search name, IP or type&hellip;"
+        [ngModel]="searchText()"
+        (ngModelChange)="onSearch($event)"
+    />
+    @if (searchText()) {
+        <button type="button" class="link" (click)="clearSearch()">Clear</button>
+    }
+
+    <span class="modes">
+        <label>
+            <input type="radio" name="searchMode" value="client" [checked]="searchMode() === 'client'" (change)="setMode('client')" />
+            Client-side
+        </label>
+        <label>
+            <input type="radio" name="searchMode" value="server" [checked]="searchMode() === 'server'" (change)="setMode('server')" />
+            Server-side
+        </label>
+    </span>
+
+    @if (searching()) {
+        <span class="hint">
+            {{ searchMode() === 'client' ? 'Loading every unfetched server, then filtering' : 'Asking the API' }}&hellip;
+        </span>
+    } @else if (isFiltered) {
+        <span class="hint">
+            {{ matchCount().toLocaleString() }} match{{ matchCount() === 1 ? '' : 'es' }}
+            @if (lastSearch(); as s) {
+                &middot; {{ s.ms }}ms &middot; {{ s.requests }} request{{ s.requests === 1 ? '' : 's' }}
+            }
+        </span>
+    } @else {
+        <span class="hint">{{ lazyServerCount }} servers hold {{ hiddenNodes.toLocaleString() }} nodes the client has not loaded</span>
+    }
+</div>
+
+<div class="tree-container">
+    <of-virtual-tree [itemHeight]="itemHeight" [model]="model">
+        <ng-template let-node>
+            <div
+                class="row"
+                [class.selected]="model.isSelected(node.item)"
+                [style.height.px]="itemHeight"
+                [style.paddingLeft.rem]="0.4 + node.depth * 1.15"
+                [title]="node.item.title"
+                (click)="select(node.item)"
+            >
+                <!-- expander: driven by isParent, so it shows before children are loaded -->
+                @if (model.isExpandable(node.item)) {
+                    <i
+                        class="expander"
+                        [class.expander-open]="model.isExpanded(node.item)"
+                        [class.expander-busy]="isLoading(node.item)"
+                        (click)="toggle(node.item, $event)"
+                    ></i>
+                } @else {
+                    <i class="expander expander-empty"></i>
+                }
+
+                <!-- nocheck: true means this node opts out of the checkbox -->
+                @if (!node.item.nocheck) {
+                    <input
+                        type="checkbox"
+                        [checked]="isChecked(node.item)"
+                        [indeterminate]="isIndeterminate(node.item)"
+                        (click)="toggleCheck(node.item, $event)"
+                    />
+                }
+
+                <!-- icon is a path, so it is an <img>, not a css class -->
+                <img class="icon" [src]="node.item.icon" [alt]="node.item.data.typeOfNode" />
+
+                <span class="name">{{ node.item.name }}</span>
+                <span class="meta">{{ trackLabel(node) }}</span>
+            </div>
+        </ng-template>
+    </of-virtual-tree>
+</div>
+
+<p class="stats">Selected: <code>{{ selectedPath() }}</code></p>
+<p class="stats">
+    <strong>{{ totalNodes.toLocaleString() }}</strong> nodes &middot;
+    <strong>{{ visibleRows().toLocaleString() }}</strong> rows visible &middot;
+    <strong>{{ checkedCount().toLocaleString() }}</strong> checked
+</p>

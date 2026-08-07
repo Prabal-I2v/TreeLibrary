@@ -1,0 +1,15 @@
+<header>
+    <h1>of-tree</h1>
+    <p>A virtual tree for Angular.</p>
+</header>
+
+<section>
+    <h2>Real payload &mdash; analytic servers &amp; video sources</h2>
+    <p>
+        The supplied payload scaled to 100,000 unique nodes of the same shape. <code>children</code> arrives as <code>null</code>,
+        <code>[]</code> and populated; <code>isParent</code> rather than child count decides what can expand, so every 20th server
+        lazy-loads its cameras; <code>icon</code> is an image path; <code>title</code> is the tooltip. The first two rows are the
+        original sample verbatim &mdash; they carry <code>nocheck: true</code>, which is why they alone have no checkbox.
+    </p>
+    <app-server-tree-demo></app-server-tree-demo>
+</section>

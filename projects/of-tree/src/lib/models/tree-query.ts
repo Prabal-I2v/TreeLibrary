@@ -278,7 +278,7 @@ export class TreeQuery<T> implements Iterable<Node<T>> {
                 defaultNext: Node<T> | undefined;
             const nextAccessor = () => defaultNext || (defaultNext = current!.reverseNode(wrap));
 
-            while (!!current) {
+            while (current) {
                 if (!current.isRoot) {
                     yield current;
                 }
@@ -299,7 +299,7 @@ export class TreeQuery<T> implements Iterable<Node<T>> {
                 defaultNext: Node<T> | undefined;
             const nextAccessor = () => defaultNext || (defaultNext = current!.forwardNode(wrap));
 
-            while (!!current) {
+            while (current) {
                 if (!current.isRoot) {
                     yield current;
                 }

@@ -9,46 +9,25 @@ import {
     HostListener,
     HostBinding,
     ElementRef,
-    AfterViewInit
+    AfterViewInit,
+    inject
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { OfVirtualTree } from './virtual-tree.model';
 import { VirtualRenderArea } from '../../models';
 
 @Component({
     selector: 'of-virtual-tree',
-    template: `
-        <ng-content select="[tree-before]"></ng-content>
-        <div class="vt-bottom-space" [style.top.px]="totalHeight"></div>
-        <div class="vt-container" [style.top.px]="topBuffer">
-            <ng-template ngFor [ngForOf]="visibleItems" [ngForTemplate]="template"></ng-template>
-        </div>
-        <ng-content select="[tree-after]"></ng-content>
-    `,
-    styles: [
-        `
-            :host {
-                outline: none;
-                display: block;
-                height: 100%;
-                overflow: auto;
-                position: relative;
-            }
-            .vt-container {
-                min-width: 100%;
-            }
-            .vt-container,
-            .vt-bottom-space {
-                position: absolute;
-            }
-            .vt-bottom-space {
-                width: 1px;
-                height: 1px;
-            }
-        `
-    ],
+    standalone: true,
+    imports: [NgTemplateOutlet],
+    templateUrl: './virtual-tree.component.html',
+    styleUrl: './virtual-tree.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class OfVirtualTreeComponent implements OnDestroy, AfterViewInit {
+    private readonly cdr = inject(ChangeDetectorRef);
+    private readonly element = inject<ElementRef<HTMLDivElement>>(ElementRef);
+
     private disposers: (() => void)[] = [];
     private _model!: OfVirtualTree<any>;
     private renderArea = new VirtualRenderArea();
@@ -106,8 +85,6 @@ export class OfVirtualTreeComponent implements OnDestroy, AfterViewInit {
     public get totalHeight() {
         return this.renderArea.totalHeight;
     }
-
-    constructor(private cdr: ChangeDetectorRef, private element: ElementRef<HTMLDivElement>) {}
 
     /**
      * @ignore
@@ -170,6 +147,9 @@ export class OfVirtualTreeComponent implements OnDestroy, AfterViewInit {
             this.renderArea.viewerHeight = bounds.height;
             if (this.renderArea.itemCount !== this.visibleItems.length) {
                 this.updateVisibleItems();
+                // This component is OnPush and invalidateSize is called imperatively, so nothing
+                // else marks it dirty. Without this the newly computed rows are never rendered.
+                this.cdr.detectChanges();
             }
         }
     }

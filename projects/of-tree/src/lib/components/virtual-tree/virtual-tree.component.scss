@@ -1,0 +1,21 @@
+:host {
+    outline: none;
+    display: block;
+    height: 100%;
+    overflow: auto;
+    position: relative;
+}
+
+.vt-container,
+.vt-bottom-space {
+    position: absolute;
+}
+
+.vt-container {
+    min-width: 100%;
+}
+
+.vt-bottom-space {
+    width: 1px;
+    height: 1px;
+}
