@@ -1,14 +1,14 @@
-import { ServerTreeNode } from './server-tree-data';
+import { TreeDataModel } from './tree-data';
 
 /** Simulated network latency for the stub API. */
 const FETCH_LATENCY_MS = 250;
 const SEARCH_LATENCY_MS = 300;
 
-export interface ServerSearchResult {
+export interface TreeSearchResult {
     /** Ids of every node that matched, including nodes the client has not loaded. */
     matchIds: Set<string>;
     /** Lazy servers the client must load before it can show all of those matches. */
-    serversToLoad: ServerTreeNode[];
+    serversToLoad: TreeDataModel[];
     /** How many matches the server found in total. */
     total: number;
     /** How many of those are behind nodes the client had not loaded. */
@@ -19,27 +19,27 @@ export interface ServerSearchResult {
  * Stands in for the API. It owns the authoritative data set - including the children of lazy
  * servers, which the client has not fetched - so it can answer questions the client cannot.
  */
-export class ServerTreeBackend {
+export class TreeBackend {
     /** Children of lazy servers, keyed by server id. The client does not have these yet. */
-    private readonly hidden: Map<string, ServerTreeNode[]>;
+    private readonly hidden: Map<string, TreeDataModel[]>;
     /** Flat view of every node in existence, loaded or not. */
-    private readonly allNodes: ServerTreeNode[];
+    private readonly allNodes: TreeDataModel[];
     /** Which lazy server a hidden node belongs to. */
-    private readonly ownerOf = new Map<string, ServerTreeNode>();
+    private readonly ownerOf = new Map<string, TreeDataModel>();
 
-    public readonly lazyServers: ServerTreeNode[];
+    public readonly lazyServers: TreeDataModel[];
     public readonly requestLog = { fetches: 0, searches: 0 };
 
     constructor(
-        public readonly nodes: ServerTreeNode[],
-        hidden: Map<string, ServerTreeNode[]>,
-        lazyServers: ServerTreeNode[]
+        public readonly nodes: TreeDataModel[],
+        hidden: Map<string, TreeDataModel[]>,
+        lazyServers: TreeDataModel[]
     ) {
         this.hidden = hidden;
         this.lazyServers = lazyServers;
 
         this.allNodes = [];
-        const walk = (list: ServerTreeNode[] | null) => {
+        const walk = (list: TreeDataModel[] | null) => {
             for (const node of list ?? []) {
                 this.allNodes.push(node);
                 walk(node.children);
@@ -47,11 +47,18 @@ export class ServerTreeBackend {
         };
         walk(nodes);
 
-        for (const server of lazyServers) {
-            for (const child of hidden.get(server.id) ?? []) {
-                this.allNodes.push(child);
-                this.ownerOf.set(child.id, server);
+        // Recurse: a lazy server's subtree can be more than one level deep (GPU servers hold
+        // pipelines, which hold cameras). Indexing only direct children would make those
+        // cameras invisible to server-side search.
+        const indexHidden = (list: TreeDataModel[] | null, owner: TreeDataModel) => {
+            for (const node of list ?? []) {
+                this.allNodes.push(node);
+                this.ownerOf.set(node.id, owner);
+                indexHidden(node.children, owner);
             }
+        };
+        for (const server of lazyServers) {
+            indexHidden(hidden.get(server.id) ?? null, server);
         }
     }
 
@@ -59,16 +66,20 @@ export class ServerTreeBackend {
         return this.allNodes.length;
     }
 
+    /** Counts whole hidden subtrees, not just the direct children of each lazy server. */
     public get hiddenNodes() {
-        let count = 0;
+        const count = (list: TreeDataModel[] | null): number =>
+            (list ?? []).reduce((total, node) => total + 1 + count(node.children), 0);
+
+        let total = 0;
         for (const children of this.hidden.values()) {
-            count += children.length;
+            total += count(children);
         }
-        return count;
+        return total;
     }
 
     /** Fetches a lazy server's cameras. */
-    public fetchChildren(server: ServerTreeNode): Promise<ServerTreeNode[]> {
+    public fetchChildren(server: TreeDataModel): Promise<TreeDataModel[]> {
         this.requestLog.fetches++;
         const children = this.hidden.get(server.id) ?? [];
         return new Promise(resolve => setTimeout(() => resolve(children), FETCH_LATENCY_MS));
@@ -78,14 +89,14 @@ export class ServerTreeBackend {
      * Searches the whole data set, including nodes the client has never loaded, and reports
      * which lazy servers the client needs in order to display the results.
      */
-    public search(term: string): Promise<ServerSearchResult> {
+    public search(term: string): Promise<TreeSearchResult> {
         this.requestLog.searches++;
         const needle = term.trim().toLowerCase();
 
         return new Promise(resolve =>
             setTimeout(() => {
                 const matchIds = new Set<string>();
-                const serversToLoad = new Set<ServerTreeNode>();
+                const serversToLoad = new Set<TreeDataModel>();
                 let hiddenMatches = 0;
 
                 for (const node of this.allNodes) {
@@ -108,7 +119,7 @@ export class ServerTreeBackend {
 }
 
 /** The predicate both search modes use, so the two paths are genuinely comparable. */
-export function matches(node: ServerTreeNode, needle: string) {
+export function matches(node: TreeDataModel, needle: string) {
     return (
         node.name.toLowerCase().includes(needle) ||
         node.data.ip.includes(needle) ||

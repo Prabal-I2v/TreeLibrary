@@ -1,0 +1,28 @@
+<div
+    class="row"
+    [class.selected]="selected()"
+    [style.height.px]="height()"
+    [style.paddingLeft.rem]="0.4 + node().depth * indent()"
+    [title]="item.title"
+    (click)="picked.emit()"
+>
+    <i [class]="expanderClass()" (click)="toggled.emit($event)"></i>
+
+    @if (!item.nocheck) {
+        <input type="checkbox" [checked]="checked()" [indeterminate]="indeterminate()" (click)="checkToggled.emit($event)" />
+    }
+
+    <img class="icon" [src]="item.icon" [alt]="item.data.typeOfNode" />
+
+    <span class="name">{{ item.name }}</span>
+    <span class="meta">{{ meta() }}</span>
+
+    <!--
+        Whatever the caller projects - buttons, toggles, whole components. This component owns
+        the slot and when it is revealed, not what goes in it. Hidden rather than absent until
+        hover, so showing it can never change the row height.
+    -->
+    <span class="actions">
+        <ng-content></ng-content>
+    </span>
+</div>

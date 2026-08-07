@@ -1,0 +1,97 @@
+// The host must not add any box of its own, or the row would render taller than [itemHeight].
+:host {
+    display: block;
+}
+
+.row {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    white-space: nowrap;
+    cursor: pointer;
+    box-sizing: border-box;
+
+    &:hover {
+        background: #f0f4f9;
+
+        .actions {
+            visibility: visible;
+        }
+    }
+
+    &.selected {
+        background: #cfe2f7;
+    }
+}
+
+.name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.meta {
+    margin-left: auto;
+    padding-right: 0.5rem;
+    color: #0007;
+    font-size: 0.78rem;
+}
+
+// The slot itself belongs to this component, so it can be styled here. Hidden rather than
+// absent, so revealing it on hover cannot reflow the row.
+//
+// What gets projected into it does NOT belong to this component's view - it carries the
+// caller's _ngcontent attribute, so rules written here would never match it. Callers style
+// their own actions, or reuse the global .row-action class from styles.scss.
+.actions {
+    visibility: hidden;
+    display: flex;
+    align-items: center;
+    gap: 0.1rem;
+    flex: 0 0 auto;
+    padding-right: 0.4rem;
+}
+
+.icon {
+    flex: 0 0 auto;
+    width: 1rem;
+    height: 1rem;
+    object-fit: contain;
+}
+
+input[type='checkbox'] {
+    flex: 0 0 auto;
+    margin: 0;
+}
+
+.expander {
+    flex: 0 0 auto;
+    width: 0.9rem;
+    height: 0.9rem;
+    background-repeat: no-repeat;
+    background-position: 50%;
+    background-size: contain;
+    background-image: url('data:image/svg+xml;utf8,<svg width="1792" height="1792" viewBox="0 0 1792 1792" xmlns="http://www.w3.org/2000/svg"><path d="M1152 896q0 26-19 45l-448 448q-19 19-45 19t-45-19-19-45v-896q0-26 19-45t45-19 45 19l448 448q19 19 19 45z"/></svg>');
+
+    &.expander-open {
+        background-image: url('data:image/svg+xml;utf8,<svg width="1792" height="1792" viewBox="0 0 1792 1792" xmlns="http://www.w3.org/2000/svg"><path d="M1408 704q0 26-19 45l-448 448q-19 19-45 19t-45-19l-448-448q-19-19-19-45t19-45 45-19h896q26 0 45 19t19 45z"/></svg>');
+    }
+
+    &.expander-empty {
+        background-image: none;
+    }
+
+    &.expander-busy {
+        background-image: none;
+        border: 2px solid #0002;
+        border-top-color: #4a90d9;
+        border-radius: 50%;
+        box-sizing: border-box;
+        animation: tree-node-spin 0.6s linear infinite;
+    }
+}
+
+@keyframes tree-node-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}

@@ -121,6 +121,136 @@ describe('of-tree demo', () => {
         expect(demo.model.items.length).toBe(before);
     });
 
+    it('nests cameras under pipelines on GPU servers, giving a third level', () => {
+        const gpu = demo.model.items.find(n => n.item.data.typeOfNode === 'AnalyticServerGPU' && n.item.children?.length)!.item;
+        const pipeline = gpu.children![0];
+
+        expect(pipeline.data.typeOfNode).toBe('Pipeline');
+        expect(pipeline.isParent).toBe(true);
+        expect(pipeline.children!.length).toBeGreaterThan(0);
+        expect(pipeline.children![0].data.typeOfNode).toBe('VideoSource');
+        expect(pipeline.children![0].children).toBeNull();
+    });
+
+    it('renders three indent levels once a GPU and a pipeline are expanded', () => {
+        const gpu = demo.model.items.find(n => n.item.data.typeOfNode === 'AnalyticServerGPU' && n.item.children?.length)!.item;
+        demo.model.setExpanded(gpu, true);
+        demo.model.setExpanded(gpu.children![0], true);
+        demo.model.invalidateData();
+        fixture.detectChanges();
+
+        const depths = demo.model.items.slice(0, 40).map(n => n.depth);
+        expect(Math.max(...depths)).toBe(2);
+
+        demo.collapseAll();
+    });
+
+    it('cascades a check from a pipeline down to its cameras', () => {
+        const gpu = demo.model.items.find(n => n.item.data.typeOfNode === 'AnalyticServerGPU' && n.item.children?.length)!.item;
+        const pipeline = gpu.children![0];
+
+        demo.toggleCheck(pipeline, new MouseEvent('click'));
+
+        expect(demo.isChecked(pipeline)).toBe(true);
+        expect(pipeline.children!.every(c => demo.isChecked(c))).toBe(true);
+        // the server above is only partly checked
+        expect(demo.isIndeterminate(gpu)).toBe(true);
+
+        demo.toggleCheck(pipeline, new MouseEvent('click'));
+    });
+
+    it('renders each row as its own component, one per visible row only', () => {
+        const host = fixture.nativeElement as HTMLElement;
+        const nodeComponents = host.querySelectorAll('app-tree-node');
+
+        expect(nodeComponents.length).toBeGreaterThan(0);
+        expect(nodeComponents.length).toBe(rows().length);
+        expect(nodeComponents.length).toBeLessThan(demo.model.items.length);
+    });
+
+    it('keeps the row component exactly itemHeight tall', () => {
+        const row = (fixture.nativeElement as HTMLElement).querySelector('app-tree-node .row') as HTMLElement;
+        const hostEl = (fixture.nativeElement as HTMLElement).querySelector('app-tree-node') as HTMLElement;
+
+        // a row that renders taller than it claims makes the scroller drift
+        expect(row.getBoundingClientRect().height).toBe(demo.itemHeight);
+        expect(hostEl.getBoundingClientRect().height).toBe(demo.itemHeight);
+    });
+
+    it('derives the expander from the data model rather than a passed-in flag', () => {
+        const host = fixture.nativeElement as HTMLElement;
+        const nodeEls = Array.from(host.querySelectorAll('app-tree-node'));
+
+        const parentRow = nodeEls.find(el => (el.textContent || '').includes('cpu-00001'))!;
+        const parentItem = demo.model.items.find(n => n.item.name === 'cpu-00001')!.item;
+
+        expect(parentItem.isParent).toBe(true);
+        expect(parentRow.querySelector('.expander-empty')).toBeNull();
+        expect(parentRow.querySelector('.expander')).not.toBeNull();
+
+        // and a leaf gets the empty placeholder
+        demo.model.setExpanded(parentItem, true);
+        demo.model.invalidateData();
+        fixture.detectChanges();
+
+        const leafEl = Array.from(host.querySelectorAll('app-tree-node')).find(el =>
+            (el.textContent || '').includes('cpu-00001-cam-')
+        )!;
+        expect(leafEl.querySelector('.expander-empty')).not.toBeNull();
+
+        demo.collapseAll();
+    });
+
+    it('keeps the expander visible on a matched but unloaded node during a search', () => {
+        const lazy = demo.model.items.find(n => n.item.isParent && n.item.children?.length === 0)!.item;
+
+        // OfVirtualTree.isExpandable() falls back to loaded-child count while filtered,
+        // which would have hidden this expander; reading isParent does not.
+        demo.model.setFilter(item => item.id === lazy.id);
+        fixture.detectChanges();
+
+        expect(demo.model.isExpandable(lazy)).toBe(false);
+        const el = (fixture.nativeElement as HTMLElement).querySelector('app-tree-node')!;
+        expect(el.querySelector('.expander-empty')).toBeNull();
+
+        demo.model.setFilter(undefined);
+    });
+
+    it('projects the caller-supplied actions into each row', () => {
+        const host = fixture.nativeElement as HTMLElement;
+        const slot = host.querySelector('app-tree-node .actions')!;
+
+        // the row owns the slot but not its contents
+        expect(slot.querySelector('app-node-toggle')).not.toBeNull();
+        expect(slot.querySelectorAll('button.row-action').length).toBe(3);
+    });
+
+    it('removes a node from the data via a projected action', () => {
+        const server = demo.model.items.find(n => n.item.name === 'cpu-00001')!;
+        demo.model.setExpanded(server.item, true);
+        demo.model.invalidateData();
+        fixture.detectChanges();
+
+        const before = server.item.children!.length;
+        const child = demo.model.items.find(n => n.item.name.startsWith('cpu-00001-cam-'))!;
+
+        demo.removeNode(child);
+
+        expect(server.item.children!.length).toBe(before - 1);
+        expect(server.item.children).not.toContain(child.item);
+    });
+
+    it('drives component-based actions, not just buttons', () => {
+        const item = demo.model.items[0].item;
+        expect(demo.isEnabled(item)).toBe(false);
+
+        demo.setEnabled(item, true);
+        expect(demo.isEnabled(item)).toBe(true);
+
+        demo.setEnabled(item, false);
+        expect(demo.isEnabled(item)).toBe(false);
+    });
+
     it('cascades a check to loaded descendants', () => {
         const server = demo.model.items.find(n => n.item.name === 'cpu-00001')!.item;
         expect(server.children?.length).toBeGreaterThan(0);

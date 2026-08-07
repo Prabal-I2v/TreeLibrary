@@ -3,8 +3,10 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { Node, OfVirtualTree, OfVirtualTreeComponent } from 'of-tree';
 
-import { ServerTreeNode, createServerTree } from './server-tree-data';
-import { matches } from './server-tree-backend';
+import { TreeDataModel, createTreeData } from './tree-data';
+import { matches } from './tree-backend';
+import { TreeNodeComponent } from './tree-node.component';
+import { NodeToggleComponent } from './node-toggle.component';
 
 /** Search walks every loaded node, so it is debounced rather than run per keystroke. */
 const SEARCH_DEBOUNCE_MS = 300;
@@ -18,7 +20,7 @@ export type SearchMode = 'client' | 'server';
 @Component({
     selector: 'app-server-tree-demo',
     standalone: true,
-    imports: [FormsModule, OfVirtualTreeComponent],
+    imports: [FormsModule, OfVirtualTreeComponent, TreeNodeComponent, NodeToggleComponent],
     templateUrl: './server-tree-demo.component.html',
     styleUrl: './server-tree-demo.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush
@@ -26,14 +28,18 @@ export type SearchMode = 'client' | 'server';
 export class ServerTreeDemoComponent {
     public readonly itemHeight = 28;
 
-    private readonly backend = createServerTree();
+    private readonly backend = createTreeData();
     public readonly totalNodes = this.backend.totalNodes;
     public readonly hiddenNodes = this.backend.hiddenNodes;
     public readonly lazyServerCount = this.backend.lazyServers.length;
 
-    public readonly selected = signal<ServerTreeNode | undefined>(undefined);
+    public readonly selected = signal<TreeDataModel | undefined>(undefined);
+    /** Feedback from the row action buttons. */
+    public readonly lastAction = signal<string | undefined>(undefined);
     private readonly loadingIds = signal(new Set<string>());
     private readonly checkedIds = signal(new Set<string>());
+    /** State owned by this component, driven by a projected toggle rather than by the row. */
+    private readonly enabledIds = signal(new Set<string>());
 
     public readonly searchMode = signal<SearchMode>('client');
     public readonly searchText = signal('');
@@ -51,7 +57,7 @@ export class ServerTreeDemoComponent {
     });
     public readonly checkedCount = computed(() => this.checkedIds().size);
 
-    public readonly model = new OfVirtualTree<ServerTreeNode>({
+    public readonly model = new OfVirtualTree<TreeDataModel>({
         // `isParent` is the authority, NOT children.length. Lazy servers arrive with
         // children: [] but are still expandable - that is what drives the lazy fetch.
         canExpand: item => item.isParent,
@@ -124,7 +130,7 @@ export class ServerTreeDemoComponent {
             this.model.reloadTree();
         }
 
-        const predicate = (item: ServerTreeNode) => matches(item, term);
+        const predicate = (item: TreeDataModel) => matches(item, term);
         this.model.setFilter(predicate);
         this.matchCount.set(this.model.items.filter(node => predicate(node.item)).length);
         this.lastSearch.set({
@@ -165,16 +171,16 @@ export class ServerTreeDemoComponent {
         this.searching.set(false);
     }
 
-    public isLoading(item: ServerTreeNode) {
+    public isLoading(item: TreeDataModel) {
         return this.loadingIds().has(item.id);
     }
 
-    public isChecked(item: ServerTreeNode) {
+    public isChecked(item: TreeDataModel) {
         return this.checkedIds().has(item.id);
     }
 
     /** True when some, but not all, loaded descendants are checked. */
-    public isIndeterminate(item: ServerTreeNode) {
+    public isIndeterminate(item: TreeDataModel) {
         const descendants = this.loadedDescendants(item);
         if (!descendants.length) {
             return false;
@@ -188,7 +194,7 @@ export class ServerTreeDemoComponent {
      * current expand state. Without that, a lazy server left "expanded but empty" by
      * expandAll would need two clicks: one to collapse, another to load.
      */
-    public async toggle(item: ServerTreeNode, event: MouseEvent) {
+    public async toggle(item: TreeDataModel, event: MouseEvent) {
         event.stopPropagation();
         if (!item.isParent || this.isLoading(item)) {
             return;
@@ -204,13 +210,67 @@ export class ServerTreeDemoComponent {
         this.model.toggle(item);
     }
 
-    public select(item: ServerTreeNode) {
+    // --- Handlers for the actions this component projects into each row -------------------
+
+    public showInfo(node: Node<TreeDataModel>) {
+        const item = node.item;
+        this.select(item);
+        this.lastAction.set(`${item.name} — ${item.data.typeOfNode}, ${item.data.ip}, id ${item.resourceId}`);
+    }
+
+    public copyId(item: TreeDataModel) {
+        navigator.clipboard?.writeText(item.resourceId).catch(() => undefined);
+        this.lastAction.set(`Copied resource id of ${item.name}`);
+    }
+
+    public removeNode(node: Node<TreeDataModel>) {
+        // Mutate the data, then tell the tree that this parent's children changed.
+        const item = node.item;
+        const parent = node.parent;
+        const siblings = this.childListOf(parent);
+        const index = siblings.indexOf(item);
+        if (index < 0) {
+            return;
+        }
+        siblings.splice(index, 1);
+
+        if (this.selected() === item) {
+            this.selected.set(undefined);
+        }
+        // A top-level node's parent is the tree's synthetic root, whose item is not one of
+        // ours, so the whole tree has to be re-read in that case.
+        if (parent && !parent.isRoot) {
+            this.model.invalidateItem(parent.item);
+        } else {
+            this.model.reloadTree();
+        }
+        this.lastAction.set(`Removed ${item.name}`);
+    }
+
+    public isEnabled(item: TreeDataModel) {
+        return this.enabledIds().has(item.id);
+    }
+
+    public setEnabled(item: TreeDataModel, on: boolean) {
+        this.enabledIds.update(prev => {
+            const next = new Set(prev);
+            if (on) {
+                next.add(item.id);
+            } else {
+                next.delete(item.id);
+            }
+            return next;
+        });
+        this.lastAction.set(`${item.name} ${on ? 'enabled' : 'disabled'}`);
+    }
+
+    public select(item: TreeDataModel) {
         this.model.selectAndHighlight(item);
         this.selected.set(item);
     }
 
     /** Checking a node cascades to every descendant that is currently loaded. */
-    public toggleCheck(item: ServerTreeNode, event: Event) {
+    public toggleCheck(item: TreeDataModel, event: Event) {
         event.stopPropagation();
         const turningOn = !this.isChecked(item);
         const affected = [item, ...this.loadedDescendants(item)];
@@ -266,15 +326,29 @@ export class ServerTreeDemoComponent {
         return '/' + parts.join('/');
     }
 
-    public trackLabel(node: Node<ServerTreeNode>) {
-        return node.item.data.typeOfNode === 'VideoSource' ? node.item.data.ip : `${node.item.data.ip} · ${node.item.data.typeOfNode}`;
+    public trackLabel(node: Node<TreeDataModel>) {
+        const { typeOfNode, ip } = node.item.data;
+
+        if (typeOfNode === 'VideoSource') {
+            return ip;
+        }
+        if (typeOfNode === 'Pipeline') {
+            const sources = node.item.children?.length ?? 0;
+            return `${sources} source${sources === 1 ? '' : 's'} · Pipeline`;
+        }
+        return `${ip} · ${typeOfNode}`;
     }
 
-    private needsLoad(item: ServerTreeNode) {
+    /** The array a node lives in: its parent's children, or the root data set. */
+    private childListOf(node: Node<TreeDataModel> | undefined): TreeDataModel[] {
+        return !node || node.isRoot ? this.backend.nodes : (node.item.children ?? []);
+    }
+
+    private needsLoad(item: TreeDataModel) {
         return item.isParent && (item.children === null || item.children.length === 0);
     }
 
-    private async loadChildren(server: ServerTreeNode) {
+    private async loadChildren(server: TreeDataModel) {
         this.setLoading(server.id, true);
         try {
             server.children = await this.backend.fetchChildren(server);
@@ -295,9 +369,9 @@ export class ServerTreeDemoComponent {
         });
     }
 
-    private loadedDescendants(item: ServerTreeNode): ServerTreeNode[] {
-        const result: ServerTreeNode[] = [];
-        const walk = (nodes: ServerTreeNode[] | null) => {
+    private loadedDescendants(item: TreeDataModel): TreeDataModel[] {
+        const result: TreeDataModel[] = [];
+        const walk = (nodes: TreeDataModel[] | null) => {
             for (const child of nodes ?? []) {
                 result.push(child);
                 walk(child.children);

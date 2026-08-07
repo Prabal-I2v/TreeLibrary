@@ -41,48 +41,47 @@
 
 <div class="tree-container">
     <of-virtual-tree [itemHeight]="itemHeight" [model]="model">
+        <!--
+            The row is its own component. Everything it needs arrives as an input and every
+            interaction leaves as an output, so its markup and styling are owned entirely by
+            app-tree-node rather than by the tree.
+        -->
         <ng-template let-node>
-            <div
-                class="row"
-                [class.selected]="model.isSelected(node.item)"
-                [style.height.px]="itemHeight"
-                [style.paddingLeft.rem]="0.4 + node.depth * 1.15"
-                [title]="node.item.title"
-                (click)="select(node.item)"
+            <app-tree-node
+                [node]="node"
+                [height]="itemHeight"
+                [expanded]="model.isExpanded(node.item)"
+                [loading]="isLoading(node.item)"
+                [selected]="model.isSelected(node.item)"
+                [checked]="isChecked(node.item)"
+                [indeterminate]="isIndeterminate(node.item)"
+                (toggled)="toggle(node.item, $event)"
+                (checkToggled)="toggleCheck(node.item, $event)"
+                (picked)="select(node.item)"
             >
-                <!-- expander: driven by isParent, so it shows before children are loaded -->
-                @if (model.isExpandable(node.item)) {
-                    <i
-                        class="expander"
-                        [class.expander-open]="model.isExpanded(node.item)"
-                        [class.expander-busy]="isLoading(node.item)"
-                        (click)="toggle(node.item, $event)"
-                    ></i>
-                } @else {
-                    <i class="expander expander-empty"></i>
-                }
+                <!--
+                    Projected row actions. The row component decides where and when these
+                    appear; this template decides what they are and what they do. Anything
+                    goes here - plain buttons, or a component like app-node-toggle.
+                -->
+                <app-node-toggle [on]="isEnabled(node.item)" (toggled)="setEnabled(node.item, $event)"></app-node-toggle>
 
-                <!-- nocheck: true means this node opts out of the checkbox -->
-                @if (!node.item.nocheck) {
-                    <input
-                        type="checkbox"
-                        [checked]="isChecked(node.item)"
-                        [indeterminate]="isIndeterminate(node.item)"
-                        (click)="toggleCheck(node.item, $event)"
-                    />
-                }
-
-                <!-- icon is a path, so it is an <img>, not a css class -->
-                <img class="icon" [src]="node.item.icon" [alt]="node.item.data.typeOfNode" />
-
-                <span class="name">{{ node.item.name }}</span>
-                <span class="meta">{{ trackLabel(node) }}</span>
-            </div>
+                <button class="row-action" title="Show details" (click)="showInfo(node); $event.stopPropagation()">&#9432;</button>
+                <button class="row-action" title="Copy resource id" (click)="copyId(node.item); $event.stopPropagation()">
+                    &#128203;
+                </button>
+                <button class="row-action" title="Remove from tree" (click)="removeNode(node); $event.stopPropagation()">
+                    &#10005;
+                </button>
+            </app-tree-node>
         </ng-template>
     </of-virtual-tree>
 </div>
 
 <p class="stats">Selected: <code>{{ selectedPath() }}</code></p>
+@if (lastAction(); as a) {
+    <p class="stats action-log">{{ a }}</p>
+}
 <p class="stats">
     <strong>{{ totalNodes.toLocaleString() }}</strong> nodes &middot;
     <strong>{{ visibleRows().toLocaleString() }}</strong> rows visible &middot;

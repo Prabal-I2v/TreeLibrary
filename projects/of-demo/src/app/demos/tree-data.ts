@@ -1,20 +1,21 @@
-import { ServerTreeBackend } from './server-tree-backend';
+import { TreeBackend } from './tree-backend';
 
 /**
- * Types matching an analytic-server / video-source tree as it arrives from the API.
+ * A tree node as it arrives from the API. Domain-neutral on purpose: the structural fields
+ * live here, and anything specific to what a node represents goes in `data`.
  *
  * Three things about this shape drive the tree configuration:
  *  - `children` is null, [] or populated, and null/[] do NOT mean "leaf"
  *  - `isParent` is the authority on whether a node can expand, so a node can advertise
- *    children it has not loaded yet (see the gpu server below)
+ *    children it has not loaded yet
  *  - `icon` is a path to an image, not a css class
  */
-export interface ServerTreeNode {
+export interface TreeDataModel<TData = TreeData> {
     id: string;
     resourceId: string;
     name: string;
-    children: ServerTreeNode[] | null;
-    data: ServerTreeNodeData;
+    children: TreeDataModel<TData>[] | null;
+    data: TData;
     checked: boolean;
     isParent: boolean;
     nocheck: boolean;
@@ -22,10 +23,14 @@ export interface ServerTreeNode {
     title: string;
 }
 
-export interface ServerTreeNodeData {
+/**
+ * The domain payload carried by a node. Swap this type (or pass your own through
+ * `TreeDataModel<T>`) without touching the structural fields above.
+ */
+export interface TreeData {
     id: string;
     name: string;
-    typeOfNode: 'AnalyticServerCPU' | 'AnalyticServerGPU' | 'VideoSource' | string;
+    typeOfNode: string;
     isDroppable: boolean;
     ip: string;
     type?: number;
@@ -38,7 +43,7 @@ export interface ServerTreeNodeData {
  * The payload exactly as supplied. Note every node here has `nocheck: true`, which is why
  * none of them render a checkbox - the generated nodes below use `nocheck: false`.
  */
-export const SERVER_TREE_DATA: ServerTreeNode[] = [
+export const SAMPLE_TREE_DATA: TreeDataModel[] = [
     {
         id: 'ebeb7868-173e-466e-b6c7-245473f8a279',
         resourceId: '08def000-5c83-2e2b-b536-02c8e7fe0000',
@@ -124,7 +129,7 @@ export const SERVER_TREE_DATA: ServerTreeNode[] = [
 ];
 
 /** Total node count the demo generates. */
-export const SERVER_TREE_TARGET_NODES = 100_000;
+export const TREE_TARGET_NODES = 100_000;
 
 const SUBNETS = ['192.168.5', '192.168.7', '10.20.30', '172.16.4', '10.8.12'];
 const RULES = ['FRS', 'LPR', 'Intrusion', 'Loitering', 'CrowdCount', 'ANPR'];
@@ -140,7 +145,7 @@ function seededRandom(seed: number) {
     };
 }
 
-function countNodes(nodes: readonly ServerTreeNode[]): number {
+function countNodes(nodes: readonly TreeDataModel[]): number {
     let total = 0;
     for (const node of nodes) {
         total += 1 + countNodes(node.children ?? []);
@@ -157,7 +162,7 @@ function countNodes(nodes: readonly ServerTreeNode[]): number {
  * twenty keeps `children: []` on the client while its real children are held by the backend,
  * which is what makes the two search modes meaningfully different.
  */
-export function createServerTree(targetNodes = SERVER_TREE_TARGET_NODES): ServerTreeBackend {
+export function createTreeData(targetNodes = TREE_TARGET_NODES): TreeBackend {
     const rand = seededRandom(19042024);
     const pick = <T>(items: T[]) => items[Math.floor(rand() * items.length)];
     const hex = (value: number, len: number) => Math.floor(value).toString(16).padStart(len, '0').slice(-len);
@@ -168,9 +173,9 @@ export function createServerTree(targetNodes = SERVER_TREE_TARGET_NODES): Server
         `${hex(rand() * 0xffff, 4)}-${hex(++seq, 12)}`;
 
     // The supplied sample, cloned so the demo can mutate it without touching the constant.
-    const nodes: ServerTreeNode[] = SERVER_TREE_DATA.map(node => structuredClone(node));
-    const hidden = new Map<string, ServerTreeNode[]>();
-    const lazyServers: ServerTreeNode[] = [];
+    const nodes: TreeDataModel[] = SAMPLE_TREE_DATA.map(node => structuredClone(node));
+    const hidden = new Map<string, TreeDataModel[]>();
+    const lazyServers: TreeDataModel[] = [];
     let created = countNodes(nodes);
     let normalizedId = 0;
     let serverIndex = 0;
@@ -187,39 +192,40 @@ export function createServerTree(targetNodes = SERVER_TREE_TARGET_NODES): Server
         const serverResourceId = uid();
         const serverName = `${isGpu ? 'gpu' : 'cpu'}-${String(serverIndex + 1).padStart(5, '0')}`;
 
-        // Every 20th server keeps its cameras on the backend so the lazy fetch stays
-        // demonstrable. They still count towards the total - they just are not client-side yet.
+        // Every 20th server keeps its subtree on the backend so the lazy fetch stays
+        // demonstrable. It still counts towards the total - it just is not client-side yet.
         const lazy = serverIndex % 20 === 19;
-        const room = targetNodes - created - 1;
-        const cameraCount = Math.max(0, Math.min(8 + Math.floor(rand() * 33), room));
+        const ip = `${subnet}.${10 + (serverIndex % 240)}`;
 
-        const children: ServerTreeNode[] = [];
-        for (let c = 0; c < cameraCount; c++) {
+        // Descendants this server may still create before the target is reached.
+        let made = 0;
+        const budget = () => targetNodes - created - 1 - made;
+
+        const makeCamera = (name: string, attachedTo: string, index: number): TreeDataModel => {
             const camResourceId = uid();
-            const camName = `${serverName}-cam-${String(c + 1).padStart(2, '0')}`;
-            const camIp = `${subnet}.${10 + (serverIndex % 240)}`;
             const rule = pick(RULES);
             normalizedId++;
+            made++;
 
-            children.push({
+            return {
                 id: uid(),
                 resourceId: camResourceId,
-                name: camName,
+                name,
                 children: null,
                 data: {
                     id: camResourceId,
-                    name: camName,
+                    name,
                     typeOfNode: 'VideoSource',
                     isDroppable: true,
-                    ip: camIp,
+                    ip,
                     normalizedId,
-                    featureType: 1 + (c % 3),
+                    featureType: 1 + (index % 3),
                     otherData: {
                         fromConfigNodeId: uid(),
                         fromEntityType: 'VideoSource',
-                        ip: camIp,
+                        ip,
                         normalizedId,
-                        featureType: 1 + (c % 3)
+                        featureType: 1 + (index % 3)
                     }
                 },
                 checked: false,
@@ -227,12 +233,71 @@ export function createServerTree(targetNodes = SERVER_TREE_TARGET_NODES): Server
                 nocheck: false,
                 icon: 'assets/Outline/camera-bullet.svg',
                 title:
-                    `ID: ${camResourceId}\nNormalized ID: ${normalizedId}\nIP: ${camIp}\n` +
-                    `Attached Server: ${serverName}\nApplied Rules: ${rule}\nUsing Stream ${1 + (c % 2)}\n`
-            });
+                    `ID: ${camResourceId}\nNormalized ID: ${normalizedId}\nIP: ${ip}\n` +
+                    `Attached Server: ${serverName}\nAttached To: ${attachedTo}\n` +
+                    `Applied Rules: ${rule}\nUsing Stream ${1 + (index % 2)}\n`
+            };
+        };
+
+        const children: TreeDataModel[] = [];
+
+        if (isGpu) {
+            // GPU servers run their cameras through analytic pipelines, giving a third level:
+            // server -> pipeline -> camera.
+            const pipelineCount = 2 + Math.floor(rand() * 3);
+
+            for (let p = 0; p < pipelineCount && budget() > 0; p++) {
+                const pipeResourceId = uid();
+                const pipeName = `${serverName}-pipe-${String(p + 1).padStart(2, '0')}`;
+                const rule = pick(RULES);
+                made++; // the pipeline node itself
+
+                const wanted = 4 + Math.floor(rand() * 9);
+                const camCount = Math.max(0, Math.min(wanted, budget()));
+                const pipeCameras: TreeDataModel[] = [];
+                for (let c = 0; c < camCount; c++) {
+                    pipeCameras.push(makeCamera(`${pipeName}-cam-${String(c + 1).padStart(2, '0')}`, pipeName, c));
+                }
+
+                children.push({
+                    id: uid(),
+                    resourceId: pipeResourceId,
+                    name: pipeName,
+                    children: pipeCameras,
+                    data: {
+                        id: pipeResourceId,
+                        name: pipeName,
+                        typeOfNode: 'Pipeline',
+                        isDroppable: true,
+                        ip,
+                        type: p,
+                        otherData: {
+                            fromConfigNodeId: uid(),
+                            fromEntityType: 'Pipeline',
+                            ip,
+                            attachedServer: serverName,
+                            rule
+                        }
+                    },
+                    checked: false,
+                    isParent: true,
+                    nocheck: false,
+                    icon: 'assets/Outline/pipeline.svg',
+                    title:
+                        `Name: ${pipeName}\nId: ${pipeResourceId}\nAttached Server: ${serverName}\n` +
+                        `IP: ${ip}\nRule: ${rule}\nSources: ${camCount}\n`
+                });
+            }
+        } else {
+            // CPU servers attach cameras directly.
+            const wanted = 8 + Math.floor(rand() * 33);
+            const camCount = Math.max(0, Math.min(wanted, budget()));
+            for (let c = 0; c < camCount; c++) {
+                children.push(makeCamera(`${serverName}-cam-${String(c + 1).padStart(2, '0')}`, serverName, c));
+            }
         }
 
-        const server: ServerTreeNode = {
+        const server: TreeDataModel = {
             id: uid(),
             resourceId: serverResourceId,
             name: serverName,
@@ -273,13 +338,15 @@ export function createServerTree(targetNodes = SERVER_TREE_TARGET_NODES): Server
             lazyServers.push(server);
         }
 
-        created += 1 + children.length;
+        // `made` counts the whole subtree, which children.length no longer does now that
+        // GPU servers nest cameras underneath pipelines.
+        created += 1 + made;
         serverIndex++;
     }
 
     // Give the sample's own lazy server (gpu) a set of hidden cameras too.
     for (const server of sampleLazy) {
-        const children: ServerTreeNode[] = [];
+        const children: TreeDataModel[] = [];
         for (let c = 0; c < 4; c++) {
             const camResourceId = uid();
             const camName = `${server.name}-cam-${String(c + 1).padStart(2, '0')}`;
@@ -309,8 +376,8 @@ export function createServerTree(targetNodes = SERVER_TREE_TARGET_NODES): Server
         lazyServers.push(server);
     }
 
-    return new ServerTreeBackend(nodes, hidden, lazyServers);
+    return new TreeBackend(nodes, hidden, lazyServers);
 }
 
-// Fetching a lazy server's children is now ServerTreeBackend.fetchChildren, so that the
+// Fetching a lazy server's children is now TreeBackend.fetchChildren, so that the
 // authoritative data lives in one place and server-side search can see it too.
