@@ -42,22 +42,19 @@
 <div class="tree-container">
     <of-virtual-tree [itemHeight]="itemHeight" [model]="model">
         <!--
-            The row is its own component. Everything it needs arrives as an input and every
-            interaction leaves as an output, so its markup and styling are owned entirely by
-            app-tree-node rather than by the tree.
+            The row is its own component, and it derives its own state: expanded, selected,
+            loading, checked and indeterminate are all decided by the node and the tree, so
+            binding them here would only restate what the model already knows. What is left
+            is the node, the tree it belongs to, and the interactions this page handles.
         -->
         <ng-template let-node>
             <app-tree-node
                 [node]="node"
-                [height]="itemHeight"
-                [expanded]="model.isExpanded(node.item)"
-                [loading]="isLoading(node.item)"
-                [selected]="model.isSelected(node.item)"
-                [checked]="isChecked(node.item)"
-                [indeterminate]="isIndeterminate(node.item)"
-                (toggled)="toggle(node.item, $event)"
-                (checkToggled)="toggleCheck(node.item, $event)"
-                (picked)="select(node.item)"
+                [treeModel]="model"
+                [rowHeight]="itemHeight"
+                (expanderClicked)="toggle(node.item, $event)"
+                (checkboxClicked)="toggleCheck(node.item, $event)"
+                (rowClicked)="select(node.item)"
             >
                 <!--
                     Projected row actions. The row component decides where and when these

@@ -3,7 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { Node, OfVirtualTree, OfVirtualTreeComponent } from 'of-tree';
 
-import { TreeDataModel, createTreeData } from './tree-data';
+import { TreeDataModel, createTreeData, loadedDescendants } from './tree-data';
 import { matches } from './tree-backend';
 import { TreeNodeComponent } from './tree-node.component';
 import { NodeToggleComponent } from './node-toggle.component';
@@ -36,7 +36,6 @@ export class ServerTreeDemoComponent {
     public readonly selected = signal<TreeDataModel | undefined>(undefined);
     /** Feedback from the row action buttons. */
     public readonly lastAction = signal<string | undefined>(undefined);
-    private readonly loadingIds = signal(new Set<string>());
     private readonly checkedIds = signal(new Set<string>());
     /** State owned by this component, driven by a projected toggle rather than by the row. */
     private readonly enabledIds = signal(new Set<string>());
@@ -171,22 +170,8 @@ export class ServerTreeDemoComponent {
         this.searching.set(false);
     }
 
-    public isLoading(item: TreeDataModel) {
-        return this.loadingIds().has(item.id);
-    }
-
     public isChecked(item: TreeDataModel) {
         return this.checkedIds().has(item.id);
-    }
-
-    /** True when some, but not all, loaded descendants are checked. */
-    public isIndeterminate(item: TreeDataModel) {
-        const descendants = this.loadedDescendants(item);
-        if (!descendants.length) {
-            return false;
-        }
-        const checked = descendants.filter(d => this.checkedIds().has(d.id)).length;
-        return checked > 0 && checked < descendants.length;
     }
 
     /**
@@ -196,7 +181,7 @@ export class ServerTreeDemoComponent {
      */
     public async toggle(item: TreeDataModel, event: MouseEvent) {
         event.stopPropagation();
-        if (!item.isParent || this.isLoading(item)) {
+        if (!item.isParent || item.NodeUIState.loading) {
             return;
         }
 
@@ -273,7 +258,7 @@ export class ServerTreeDemoComponent {
     public toggleCheck(item: TreeDataModel, event: Event) {
         event.stopPropagation();
         const turningOn = !this.isChecked(item);
-        const affected = [item, ...this.loadedDescendants(item)];
+        const affected = [item, ...loadedDescendants(item)];
 
         this.checkedIds.update(prev => {
             const next = new Set(prev);
@@ -283,7 +268,7 @@ export class ServerTreeDemoComponent {
                 } else {
                     next.delete(node.id);
                 }
-                node.checked = turningOn;
+                node.NodeUIState.checked = turningOn;
             }
             return next;
         });
@@ -348,36 +333,17 @@ export class ServerTreeDemoComponent {
         return item.isParent && (item.children === null || item.children.length === 0);
     }
 
+    /**
+     * The busy state is written into the node's NodeUIState, not held in a set here, because
+     * it is the node that is loading - which is how the row can show a busy expander without
+     * being told to. This is the only writer, so no path can forget to clear the flag.
+     */
     private async loadChildren(server: TreeDataModel) {
-        this.setLoading(server.id, true);
+        server.NodeUIState.loading = true;
         try {
             server.children = await this.backend.fetchChildren(server);
         } finally {
-            this.setLoading(server.id, false);
+            server.NodeUIState.loading = false;
         }
-    }
-
-    private setLoading(id: string, loading: boolean) {
-        this.loadingIds.update(prev => {
-            const next = new Set(prev);
-            if (loading) {
-                next.add(id);
-            } else {
-                next.delete(id);
-            }
-            return next;
-        });
-    }
-
-    private loadedDescendants(item: TreeDataModel): TreeDataModel[] {
-        const result: TreeDataModel[] = [];
-        const walk = (nodes: TreeDataModel[] | null) => {
-            for (const child of nodes ?? []) {
-                result.push(child);
-                walk(child.children);
-            }
-        };
-        walk(item.children);
-        return result;
     }
 }

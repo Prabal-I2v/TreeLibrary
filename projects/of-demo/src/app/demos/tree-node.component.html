@@ -1,15 +1,15 @@
 <div
     class="row"
     [class.selected]="selected()"
-    [style.height.px]="height()"
-    [style.paddingLeft.rem]="0.4 + node().depth * indent()"
+    [style.height.px]="rowHeight()"
+    [style.paddingLeft.rem]="0.4 + node().depth * indentPerLevelRem()"
     [title]="item.title"
-    (click)="picked.emit()"
+    (click)="rowClicked.emit()"
 >
-    <i [class]="expanderClass()" (click)="toggled.emit($event)"></i>
+    <i [class]="expanderClass()" (click)="expanderClicked.emit($event)"></i>
 
     @if (!item.nocheck) {
-        <input type="checkbox" [checked]="checked()" [indeterminate]="indeterminate()" (click)="checkToggled.emit($event)" />
+        <input type="checkbox" [checked]="checked()" [indeterminate]="indeterminate()" (click)="checkboxClicked.emit($event)" />
     }
 
     <img class="icon" [src]="item.icon" [alt]="item.data.typeOfNode" />

@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed, waitForAsync } from '@angular/core/testing';
 
 import { AppComponent } from './app.component';
 import { ServerTreeDemoComponent } from './demos/server-tree-demo.component';
+import { isPartiallyChecked } from './demos/tree-data';
 
 /** Waits for a debounced + awaited search to settle. */
 async function settle(fixture: ComponentFixture<AppComponent>, demo: ServerTreeDemoComponent, timeoutMs = 15000) {
@@ -153,8 +154,9 @@ describe('of-tree demo', () => {
 
         expect(demo.isChecked(pipeline)).toBe(true);
         expect(pipeline.children!.every(c => demo.isChecked(c))).toBe(true);
-        // the server above is only partly checked
-        expect(demo.isIndeterminate(gpu)).toBe(true);
+        // the server above is only partly checked - derived from the subtree, which is why
+        // the row can work it out for itself rather than being handed an [indeterminate]
+        expect(isPartiallyChecked(gpu)).toBe(true);
 
         demo.toggleCheck(pipeline, new MouseEvent('click'));
     });
@@ -197,6 +199,70 @@ describe('of-tree demo', () => {
             (el.textContent || '').includes('cpu-00001-cam-')
         )!;
         expect(leafEl.querySelector('.expander-empty')).not.toBeNull();
+
+        demo.collapseAll();
+    });
+
+    it('derives the selected row from the tree rather than a passed-in flag', () => {
+        const first = demo.model.items[0].item;
+        const second = demo.model.items[1].item;
+
+        demo.select(first);
+        fixture.detectChanges();
+        expect(rows()[0].classList).toContain('selected');
+        expect(rows()[1].classList).not.toContain('selected');
+
+        // select() does not rebuild the item list, so the previously selected row can only
+        // lose its highlight by re-reading the state from the tree on each check
+        demo.select(second);
+        fixture.detectChanges();
+        expect(rows()[0].classList).not.toContain('selected');
+        expect(rows()[1].classList).toContain('selected');
+    });
+
+    it('derives each checkbox from the node, so a cascade repaints the descendant rows', () => {
+        const server = demo.model.items.find(n => n.item.name === 'cpu-00001')!.item;
+        demo.model.setExpanded(server, true);
+        demo.model.invalidateData();
+        fixture.detectChanges();
+
+        const index = demo.model.items.findIndex(n => n.item === server);
+        const boxAt = (i: number) => rows()[i].querySelector('input[type=checkbox]') as HTMLInputElement;
+
+        demo.toggleCheck(server, new MouseEvent('click'));
+        fixture.detectChanges();
+        expect(boxAt(index).checked).toBe(true);
+        // the cascade never touches the child row's inputs - only its item's checked flag
+        expect(boxAt(index + 1).checked).toBe(true);
+
+        demo.toggleCheck(server, new MouseEvent('click'));
+        fixture.detectChanges();
+        expect(boxAt(index).checked).toBe(false);
+        expect(boxAt(index + 1).checked).toBe(false);
+
+        demo.collapseAll();
+    });
+
+    it('shows a busy expander while the node carries its own loading flag', async () => {
+        const lazy = demo.model.items.find(n => n.item.isParent && n.item.children?.length === 0)!.item;
+        const index = demo.model.items.findIndex(n => n.item === lazy);
+        const busy = () => rows()[index].querySelector('.expander-busy');
+
+        // clicked rather than called: the click is what marks the row for check, which is
+        // how the app repaints a row whose state changed without any input changing
+        rows()[index].querySelector('i')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        fixture.detectChanges();
+
+        expect(lazy.NodeUIState.loading).toBe(true);
+        expect(busy()).not.toBeNull();
+
+        while (lazy.NodeUIState.loading) {
+            await new Promise(r => setTimeout(r, 25));
+        }
+        fixture.detectChanges();
+
+        expect(lazy.children!.length).toBeGreaterThan(0);
+        expect(busy()).toBeNull();
 
         demo.collapseAll();
     });

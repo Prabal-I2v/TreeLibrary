@@ -1,8 +1,25 @@
 import { TreeBackend } from './tree-backend';
 
 /**
- * A tree node as it arrives from the API. Domain-neutral on purpose: the structural fields
- * live here, and anything specific to what a node represents goes in `data`.
+ * Mutable per-node client state, grouped so that "what the node is" and "what the client is
+ * currently doing to it" do not share a namespace. Everything in here is written by the page
+ * and only read by the row, which is how the row derives its own appearance rather than being
+ * handed inputs that restate it.
+ *
+ * `nocheck` deliberately stays out: it is a server-declared capability that never changes
+ * after load, so it belongs beside `isParent`, not with state that mutates.
+ */
+export interface NodeUIState {
+    /** Initial value comes from the payload; the client owns it from load onward. */
+    checked: boolean;
+    /** Set while this node's children are being fetched. */
+    loading: boolean;
+}
+
+/**
+ * A tree node as it arrives from the API, plus the client's own `NodeUIState`. Domain-neutral
+ * on purpose: the structural fields live here, and anything specific to what a node
+ * represents goes in `data`.
  *
  * Three things about this shape drive the tree configuration:
  *  - `children` is null, [] or populated, and null/[] do NOT mean "leaf"
@@ -16,11 +33,11 @@ export interface TreeDataModel<TData = TreeData> {
     name: string;
     children: TreeDataModel<TData>[] | null;
     data: TData;
-    checked: boolean;
     isParent: boolean;
     nocheck: boolean;
     icon: string;
     title: string;
+    NodeUIState: NodeUIState;
 }
 
 /**
@@ -40,8 +57,39 @@ export interface TreeData {
 }
 
 /**
- * The payload exactly as supplied. Note every node here has `nocheck: true`, which is why
- * none of them render a checkbox - the generated nodes below use `nocheck: false`.
+ * Every already-loaded node beneath `item`, depth first. Children that have not been fetched
+ * are `null` and are simply not walked, so this only ever reports what the client can see.
+ */
+export function loadedDescendants(item: TreeDataModel): TreeDataModel[] {
+    const result: TreeDataModel[] = [];
+    const walk = (nodes: TreeDataModel[] | null) => {
+        for (const child of nodes ?? []) {
+            result.push(child);
+            walk(child.children);
+        }
+    };
+    walk(item.children);
+    return result;
+}
+
+/**
+ * True when some, but not all, loaded descendants are checked - a pure function of the
+ * subtree, which is why the row derives it rather than taking it as an input.
+ */
+export function isPartiallyChecked(item: TreeDataModel): boolean {
+    const descendants = loadedDescendants(item);
+    if (!descendants.length) {
+        return false;
+    }
+    const checked = descendants.filter(descendant => descendant.NodeUIState.checked).length;
+    return checked > 0 && checked < descendants.length;
+}
+
+/**
+ * The payload as supplied, with the client's own `NodeUIState` attached - the API sends the
+ * initial `checked` value but knows nothing about `loading`. Note every node here has
+ * `nocheck: true`, which is why none of them render a checkbox - the generated nodes below
+ * use `nocheck: false`.
  */
 export const SAMPLE_TREE_DATA: TreeDataModel[] = [
     {
@@ -70,7 +118,7 @@ export const SAMPLE_TREE_DATA: TreeDataModel[] = [
                         featureType: 1
                     }
                 },
-                checked: false,
+                NodeUIState: { checked: false, loading: false },
                 isParent: false,
                 nocheck: true,
                 icon: 'assets/Outline/camera-bullet.svg',
@@ -94,7 +142,7 @@ export const SAMPLE_TREE_DATA: TreeDataModel[] = [
                 typeOfNode: 'AnalyticServerCPU'
             }
         },
-        checked: false,
+        NodeUIState: { checked: false, loading: false },
         isParent: true,
         nocheck: true,
         icon: 'assets/server-cpu-dissconnected.svg',
@@ -120,7 +168,7 @@ export const SAMPLE_TREE_DATA: TreeDataModel[] = [
                 typeOfNode: 'AnalyticServerGPU'
             }
         },
-        checked: false,
+        NodeUIState: { checked: false, loading: false },
         isParent: true,
         nocheck: true,
         icon: 'assets/chip-dissconnected.svg',
@@ -228,7 +276,7 @@ export function createTreeData(targetNodes = TREE_TARGET_NODES): TreeBackend {
                         featureType: 1 + (index % 3)
                     }
                 },
-                checked: false,
+                NodeUIState: { checked: false, loading: false },
                 isParent: false,
                 nocheck: false,
                 icon: 'assets/Outline/camera-bullet.svg',
@@ -279,7 +327,7 @@ export function createTreeData(targetNodes = TREE_TARGET_NODES): TreeBackend {
                             rule
                         }
                     },
-                    checked: false,
+                    NodeUIState: { checked: false, loading: false },
                     isParent: true,
                     nocheck: false,
                     icon: 'assets/Outline/pipeline.svg',
@@ -317,7 +365,7 @@ export function createTreeData(targetNodes = TREE_TARGET_NODES): TreeBackend {
                     typeOfNode: isGpu ? 'AnalyticServerGPU' : 'AnalyticServerCPU'
                 }
             },
-            checked: false,
+            NodeUIState: { checked: false, loading: false },
             isParent: true,
             nocheck: false,
             icon: isGpu
@@ -365,7 +413,7 @@ export function createTreeData(targetNodes = TREE_TARGET_NODES): TreeBackend {
                     normalizedId,
                     featureType: 1
                 },
-                checked: false,
+                NodeUIState: { checked: false, loading: false },
                 isParent: false,
                 nocheck: false,
                 icon: 'assets/Outline/camera-bullet.svg',
