@@ -5,7 +5,7 @@
         {
             "files": ["*.ts"],
             "parserOptions": {
-                "project": ["projects/of-tree/tsconfig.lib.json", "projects/of-tree/tsconfig.spec.json"],
+                "project": ["projects/i2v-tree/tsconfig.lib.json", "projects/i2v-tree/tsconfig.spec.json"],
                 "createDefaultProgram": true
             },
             "rules": {
@@ -13,7 +13,7 @@
                     "error",
                     {
                         "type": "attribute",
-                        "prefix": "of",
+                        "prefix": "i2v",
                         "style": "camelCase"
                     }
                 ],
@@ -21,7 +21,7 @@
                     "error",
                     {
                         "type": "element",
-                        "prefix": "of",
+                        "prefix": "i2v",
                         "style": "kebab-case"
                     }
                 ],

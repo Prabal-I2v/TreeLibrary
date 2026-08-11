@@ -30,49 +30,49 @@ To summarize, this tree is built around this recipe (which works for any hierarc
 
 ## Install
 
-`npm i of-tree` obviously
+`npm i i2v-tree` obviously
 
 ## Quick Setup
 
 1. Import the component
 
-The components are standalone, so import them directly where you use them:
+The component is standalone, so import it directly where you use it:
 
 ```typescript
-import { OfBasicTreeComponent, OfVirtualTreeComponent } from 'of-tree';
+import { I2vVirtualTreeComponent } from 'i2v-tree';
 
 @Component({
   standalone: true,
-  imports: [OfBasicTreeComponent],
+  imports: [I2vVirtualTreeComponent],
   ...
 })
 export class MyComponent { }
 ```
 
-If you are still on NgModules, `OfVirtualTreeModule` exports both components and works unchanged:
+If you are still on NgModules, `I2vVirtualTreeModule` exports the component and works unchanged:
 
 ```typescript
-import { OfVirtualTreeModule } from 'of-tree';
+import { I2vVirtualTreeModule } from 'i2v-tree';
 
 @NgModule({
-  imports: [..., OfVirtualTreeModule],
+  imports: [..., I2vVirtualTreeModule],
   ...
 })
 export class AppModule { }
 ```
 
 
-2. Use the `of-basic-tree` component
+2. Use the `i2v-virtual-tree` component
 ```typescript
 import { Component } from '@angular/core';
-import { OfBasicTreeComponent } from 'of-tree';
+import { I2vVirtualTreeComponent } from 'i2v-tree';
 
 @Component({
     standalone: true,
-    imports: [OfBasicTreeComponent],
+    imports: [I2vVirtualTreeComponent],
     template: `
         <div class="container">
-            <of-basic-tree [(selection)]="selectedItem" [data]="treeData"></of-basic-tree>
+            <i2v-virtual-tree [(selection)]="selectedItem" [data]="treeData"></i2v-virtual-tree>
         </div>`,
     styles: [`
         .container { height: 400px; }
@@ -92,6 +92,51 @@ interface IMyDataType {
 
 For the most minimal setup expects, provide data with known properties, and put the tree inside a container of a non-zero height. However, the tree is very configurable. It has a robust public API and allows detailed configuration.
 
+3. Take over the row when you need to
+
+Project an `<ng-template>` and the tree renders that instead of its built-in row. You get the
+`Node` for the row, plus the usual `index`/`first`/`last`/`count`/`even`/`odd` context:
+
+```html
+<i2v-virtual-tree [itemHeight]="24" [model]="model">
+    <ng-template let-node let-index="index">
+        <div class="my-row">{{ index }}: {{ node.item.name }}</div>
+    </ng-template>
+</i2v-virtual-tree>
+```
+
+> Binding `[(selection)]` emits `selectionChange` while the parent's inputs are still being set,
+> which Angular's dev mode may report as `ExpressionChangedAfterItHasBeenChecked`. It settles on
+> the next pass; bind `[selection]` and `(selectionChange)` separately to avoid the warning.
+
+## Migrating from `of-tree`
+
+The package was renamed from `of-tree` to `i2v-tree`, and the `of` prefix became `i2v`
+throughout. At the same time `of-basic-tree` was folded into the one remaining component, which
+now renders the built-in row when no template is projected. To migrate:
+
+| Before | After |
+| --- | --- |
+| `npm i of-tree` | `npm i i2v-tree` |
+| `<of-basic-tree …>` / `<of-virtual-tree …>` | `<i2v-virtual-tree …>` |
+| `OfBasicTreeComponent` / `OfVirtualTreeComponent` | `I2vVirtualTreeComponent` |
+| `OfVirtualTree` / `OfVirtualTreeModule` | `I2vVirtualTree` / `I2vVirtualTreeModule` |
+| `VtBasicTreeConfig<T>` / `OfTreeConfig<T>` | `I2vTreeConfig<T>` |
+| `[ofSetAttrs]` | `[i2vSetAttrs]` |
+| `basicTree.tree.scrollTo(…)` | `tree.scrollTo(…)` — the inner `tree` handle is gone |
+
+If you style the tree, every CSS class moved from `of-` to `i2v-` as well: `of-node`,
+`of-label`, `of-selected`, `of-highlight`, `of-icon`, `of-expander`, `of-dragoverlay` and the
+icon classes all gained the new prefix. The internal layout classes `vt-container` and
+`vt-bottom-space` are unchanged.
+
+Cross-window drag now uses the `application/json.i2v-tree-item` dataTransfer key, so a page
+running the old build cannot exchange nodes with one running this build.
+
+Every input, output and method keeps its name and signature. `canDrag` and `handleDragstart` are
+public, so a projected row can opt into the built-in drag and drop by wiring
+`[draggable]="tree.canDrag(node.item)" (dragstart)="tree.handleDragstart($event, node)"`.
+
 ## Browser Support
 
 | [<img src="https://raw.githubusercontent.com/alrra/browser-logos/master/src/chrome/chrome_48x48.png" alt="Chrome" width="24px" height="24px" />](http://godban.github.io/browsers-support-badges/)<br>Chrome | [<img src="https://raw.githubusercontent.com/alrra/browser-logos/master/src/edge/edge_48x48.png" alt="IE / Edge" width="24px" height="24px" />](http://godban.github.io/browsers-support-badges/)<br>IE / Edge | [<img src="https://raw.githubusercontent.com/alrra/browser-logos/master/src/firefox/firefox_48x48.png" alt="Firefox" width="24px" height="24px" />](http://godban.github.io/browsers-support-badges/)<br>Firefox |
@@ -110,6 +155,6 @@ Here are some other virtual tree implementations for angular.
 
 If you find a bug, the best thing is to fix it, and submit a pull request. The second best thing is to open an issue and provide a lot of details and rage emojis and venting. The worst best thing is to not do anything. Any contribution is appreciated :)
 
-Run `npm run ng serve of-demo`
+Run `npm start`
 
 Open [localhost:4200](http://localhost:4200) in chrome

@@ -20,7 +20,7 @@ module.exports = function (config) {
             suppressAll: true // removes the duplicated traces
         },
         coverageReporter: {
-            dir: require('path').join(__dirname, '../../coverage/of-tree'),
+            dir: require('path').join(__dirname, '../../coverage/i2v-tree'),
             subdir: '.',
             reporters: [{ type: 'html' }, { type: 'text-summary' }]
         },

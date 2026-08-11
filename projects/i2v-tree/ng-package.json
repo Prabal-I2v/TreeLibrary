@@ -1,6 +1,6 @@
 {
     "$schema": "../../node_modules/ng-packagr/ng-package.schema.json",
-    "dest": "../../dist/of-tree",
+    "dest": "../../dist/i2v-tree",
     "lib": {
         "entryFile": "src/index.ts"
     }

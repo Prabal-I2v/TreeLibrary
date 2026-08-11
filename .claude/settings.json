@@ -3,7 +3,22 @@
     "allow": [
       "Bash(npx tsc *)",
       "Bash(echo \"=== exit: $? ===\")",
-      "Bash(npx ng *)"
+      "Bash(npx ng *)",
+      "Bash(echo \"=== TYPECHECK EXIT: $? ===\")",
+      "Bash(npm run *)",
+      "Bash(git rm *)",
+      "Bash(curl -sf http://localhost:4300/ -o index.html)",
+      "Bash(curl -sf http://localhost:4300/main.js -o main.js)",
+      "Bash(pkill -f \"ng serve of-demo\")",
+      "Bash(pkill -9 -f \"ng serve of-demo\")",
+      "Bash(timeout 300 npx ng test of-tree --watch=false)",
+      "Bash(timeout 300 npx ng test of-demo --watch=false)",
+      "Bash(grep -vE \"^$\")",
+      "Bash(git mv *)",
+      "Bash(git add *)",
+      "Bash(git restore *)",
+      "Bash(xargs -I{} echo \"✓ lint: {}/2 projects\")",
+      "Bash(timeout 300 npx ng test i2v-tree --watch=false)"
     ]
   }
 }

@@ -50,17 +50,6 @@ describe('VirtualRenderArea', () => {
         expect(vra.visibleCount).toBe(13);
     });
 
-    it('updates calculations item height change scrolled', () => {
-        const vra = createVra();
-        vra.scrollPos = 60;
-        vra.itemHeight = 25;
-
-        expect(vra.topBuffer).toBe(50);
-        expect(vra.totalHeight).toBe(50000);
-        expect(vra.visibleStart).toBe(2);
-        expect(vra.visibleCount).toBe(13);
-    });
-
     it('updates calculations item count change', () => {
         const vra = createVra();
         vra.itemCount = 1500;

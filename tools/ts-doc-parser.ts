@@ -74,5 +74,5 @@ class TsFileReader {
     private readExports() {}
 }
 
-TsFileReader.read(resolve(root, './projects/of-tree/src/lib/models/node.ts'));
+TsFileReader.read(resolve(root, './projects/i2v-tree/src/lib/models/node.ts'));
 console.log(ts.SyntaxKind.ExportKeyword);

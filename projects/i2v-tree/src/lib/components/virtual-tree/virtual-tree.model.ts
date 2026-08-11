@@ -1,13 +1,8 @@
 import { EventEmitter } from '@angular/core';
 import { Node, TreeQuery, TreeConfig } from '../../models';
+import { I2vTreeConfig, TreeChildAccessor } from './virtual-tree.config';
 
-export interface OfTreeConfig<ItemType> {
-    canExpand?: (item: ItemType) => boolean;
-    childAccessor?: (item: ItemType) => ItemType[] | undefined;
-    lazyLoad?: boolean;
-}
-
-export class OfVirtualTree<ItemType> {
+export class I2vVirtualTree<ItemType> {
     private expandedItems = new Set<ItemType>();
     private highlighted?: ItemType;
     private selectedItem?: ItemType;
@@ -24,15 +19,15 @@ export class OfVirtualTree<ItemType> {
         return this._query;
     }
 
-    constructor(private config: OfTreeConfig<ItemType>, query?: TreeQuery<ItemType>) {
+    constructor(private config: I2vTreeConfig<ItemType>, query?: TreeQuery<ItemType>) {
         if (query) {
             this._query = query;
         } else {
-            this._query = new TreeConfig<ItemType>(this.config.childAccessor, !this.config.lazyLoad).query([]);
+            this._query = new TreeConfig<ItemType>(this.syncChildAccessor(), !this.config.lazyLoad).query([]);
         }
     }
 
-    public updateConfig(value: OfTreeConfig<ItemType>) {
+    public updateConfig(value: I2vTreeConfig<ItemType>) {
         this.config = value;
     }
 
@@ -238,7 +233,7 @@ export class OfVirtualTree<ItemType> {
      * @param items Data to load
      */
     public load(items: ItemType[]) {
-        this._query = new TreeConfig<ItemType>(this.config.childAccessor, !this.config.lazyLoad).query(items);
+        this._query = new TreeConfig<ItemType>(this.syncChildAccessor(), !this.config.lazyLoad).query(items);
         this.invalidateData();
     }
 
@@ -334,5 +329,20 @@ export class OfVirtualTree<ItemType> {
                 this.invalidateData();
             }
         }
+    }
+
+    /**
+     * The tree walk is synchronous, so a promise-returning accessor contributes no children yet.
+     * Whoever started the load calls invalidateItem when it settles, and the walk picks them up then.
+     */
+    private syncChildAccessor(): TreeChildAccessor<ItemType> | undefined {
+        const accessor = this.config.childAccessor;
+        if (!accessor) {
+            return undefined;
+        }
+        return item => {
+            const children = accessor(item);
+            return children instanceof Promise ? undefined : children;
+        };
     }
 }

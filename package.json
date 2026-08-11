@@ -4,7 +4,7 @@
     "scripts": {
         "ng": "ng",
         "start": "ng serve of-demo",
-        "build": "ng build of-tree",
+        "build": "ng build i2v-tree",
         "build:demo": "ng build of-demo",
         "test": "ng test",
         "lint": "ng lint"

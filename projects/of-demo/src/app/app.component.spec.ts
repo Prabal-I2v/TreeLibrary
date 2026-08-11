@@ -13,7 +13,7 @@ async function settle(fixture: ComponentFixture<AppComponent>, demo: ServerTreeD
     fixture.detectChanges();
 }
 
-describe('of-tree demo', () => {
+describe('i2v-tree demo', () => {
     let fixture: ComponentFixture<AppComponent>;
     let demo: ServerTreeDemoComponent;
 
@@ -270,7 +270,7 @@ describe('of-tree demo', () => {
     it('keeps the expander visible on a matched but unloaded node during a search', () => {
         const lazy = demo.model.items.find(n => n.item.isParent && n.item.children?.length === 0)!.item;
 
-        // OfVirtualTree.isExpandable() falls back to loaded-child count while filtered,
+        // I2vVirtualTree.isExpandable() falls back to loaded-child count while filtered,
         // which would have hidden this expander; reading isParent does not.
         demo.model.setFilter(item => item.id === lazy.id);
         fixture.detectChanges();

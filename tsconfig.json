@@ -23,8 +23,8 @@
         "useDefineForClassFields": false,
         "lib": ["ES2022", "dom"],
         "paths": {
-            "of-tree": ["projects/of-tree/src/index.ts"],
-            "of-tree/*": ["projects/of-tree/src/*"]
+            "i2v-tree": ["projects/i2v-tree/src/index.ts"],
+            "i2v-tree/*": ["projects/i2v-tree/src/*"]
         }
     },
     "angularCompilerOptions": {

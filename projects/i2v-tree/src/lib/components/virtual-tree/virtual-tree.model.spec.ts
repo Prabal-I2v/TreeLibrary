@@ -1,17 +1,17 @@
-import { OfVirtualTree } from './virtual-tree.model';
+import { I2vVirtualTree } from './virtual-tree.model';
 
 interface Item {
     id: number;
     children?: Item[];
 }
 
-describe('OfVirtualTree', () => {
+describe('I2vVirtualTree', () => {
     const createVt = (data: Item[]) => {
-            const result = new OfVirtualTree<Item>({ childAccessor: (item: Item) => item.children });
+            const result = new I2vVirtualTree<Item>({ childAccessor: (item: Item) => item.children });
             result.load(data);
             return result;
         },
-        navigate = (vt: OfVirtualTree<Item>, ...directions: string[]) => {
+        navigate = (vt: I2vVirtualTree<Item>, ...directions: string[]) => {
             const result: (number | undefined)[] = [];
             for (const dir of directions) {
                 vt.navigate(dir);

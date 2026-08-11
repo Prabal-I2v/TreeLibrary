@@ -1,5 +1,5 @@
 import { Component, input, output } from '@angular/core';
-import { Node, OfVirtualTree } from 'of-tree';
+import { Node, I2vVirtualTree } from 'i2v-tree';
 
 import { TreeDataModel, isPartiallyChecked } from './tree-data';
 
@@ -41,7 +41,7 @@ export class TreeNodeComponent {
      * state, so the row asks it rather than taking [expanded] and [selected] the caller
      * would have to keep honest.
      */
-    public readonly treeModel = input.required<OfVirtualTree<TreeDataModel>>();
+    public readonly treeModel = input.required<I2vVirtualTree<TreeDataModel>>();
 
     /**
      * Fixed height of the row, in px. Must equal the tree's [itemHeight]: the scroller
@@ -102,7 +102,7 @@ export class TreeNodeComponent {
      * `isParent` is a structural field of TreeDataModel, so the row already knows - passing
      * it in would just restate the model.
      *
-     * Deliberately not OfVirtualTree.isExpandable(), which falls back to "has loaded
+     * Deliberately not I2vVirtualTree.isExpandable(), which falls back to "has loaded
      * children" while a filter is active. That would hide the expander on a matched but
      * unloaded node, exactly when it is needed.
      */

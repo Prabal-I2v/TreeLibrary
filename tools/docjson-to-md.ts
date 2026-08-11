@@ -204,15 +204,15 @@ ${content}
 
 (function() {
     const app = new Application({
-            tsconfig: 'projects/of-tree/tsconfig.lib.json'
+            tsconfig: 'projects/i2v-tree/tsconfig.lib.json'
         }),
-        files = app.expandInputFiles(['projects/of-tree/src']).filter(f => !(f.endsWith('test.ts') || f.endsWith('spec.ts'))),
+        files = app.expandInputFiles(['projects/i2v-tree/src']).filter(f => !(f.endsWith('test.ts') || f.endsWith('spec.ts'))),
         conversion = app.convert(files),
         root = resolve(__dirname, './..'),
         dropLocation = resolve(root, './projects/of-demo/src/assets/'),
         docJsonLocation = resolve(root, './dist/'),
         fileSystem = new ApiDocFileSystem(docJsonLocation, dropLocation),
-        mdGen = conversion ? new MdGenerator(conversion, 'of-tree') : null;
+        mdGen = conversion ? new MdGenerator(conversion, 'i2v-tree') : null;
 
     if (mdGen) {
         fileSystem.saveMdFile(mdGen.createMd());

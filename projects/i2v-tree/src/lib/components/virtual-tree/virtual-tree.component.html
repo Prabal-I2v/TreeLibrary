@@ -1,0 +1,77 @@
+<ng-content select="[tree-before]"></ng-content>
+
+<!--
+    Ahead of .vt-container on purpose: neither has a z-index, so paint order is DOM order and the
+    overlay has to sit behind the rows. Hidden with [style.display] rather than @if, so the
+    ViewChild is never undefined while adjustDragOverlay writes to it.
+-->
+<div #dragOverlay class="i2v-dragoverlay" [style.display]="isDraggingOver ? 'block' : 'none'"></div>
+
+<!-- Empty spacer pushed to the full height of the data, so the scrollbar is the right size. -->
+<div class="vt-bottom-space" [style.top.px]="totalHeight"></div>
+
+<!-- The window of rows that are actually on screen, offset to sit under the scroll position. -->
+<div class="vt-container" [style.top.px]="topBuffer">
+    <!--
+        Tracked by index on purpose. visibleItems is a sliding window over the data, so the same
+        row slots are reused as you scroll and only their context is rebound. Tracking by identity
+        would destroy and recreate every row on every scroll (NG0956).
+    -->
+    @for (item of visibleItems; track $index) {
+        <!--
+            The context keys match NgForOf's, so templates written against the old [ngForTemplate]
+            binding keep working.
+        -->
+        <ng-container
+            *ngTemplateOutlet="
+                template ?? defaultRow;
+                context: {
+                    $implicit: item,
+                    index: $index,
+                    count: $count,
+                    first: $first,
+                    last: $last,
+                    even: $even,
+                    odd: $odd
+                }
+            "
+        ></ng-container>
+    }
+</div>
+
+<ng-content select="[tree-after]"></ng-content>
+
+<!--
+    The built-in row, used when the consumer projects no template of their own. Content queries only
+    see projected content, so @ContentChild(TemplateRef) cannot match this one. It has to stay at
+    the top level - a reference declared inside @for would not be in scope for the outlet above.
+-->
+<ng-template #defaultRow let-node>
+    <div
+        class="i2v-node"
+        [style.paddingLeft.rem]="1.5 * (node.depth + 1)"
+        [style.height.px]="itemHeight"
+        [i2vSetAttrs]="getDomNodeAttr(node)"
+        (contextmenu)="handleContextMenu($event, node.item)"
+    >
+        @if (model.isExpandable(node.item) && !isFiltered) {
+            <i (click)="model.toggle(node.item)" [class]="getExpanderIcon(node.item)"></i>
+        }
+        <div
+            class="i2v-node-title"
+            [draggable]="canDrag(node.item)"
+            (dragstart)="handleDragstart($event, node)"
+            (click)="handleRowClick($event, node.item)"
+        >
+            <i [class]="getIcon(node)" (click)="iconClick.emit({ event: $event, item: node.item })"></i>
+            <div
+                class="i2v-label"
+                (click)="labelClick.emit({ event: $event, item: node.item })"
+                [class.i2v-highlight]="model.isHighlighted(node.item)"
+                [class.i2v-selected]="model.isSelected(node.item)"
+            >
+                {{ getName(node.item) }}
+            </div>
+        </div>
+    </div>
+</ng-template>

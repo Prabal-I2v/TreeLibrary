@@ -159,7 +159,8 @@ describe('TreeQuery', () => {
         tq.getRootNode().invalidateChildren(true);
         expect(tq.findNode(dummyData[0])).toBeTruthy();
 
-        expect(tq.count());
+        // count() walks the whole tree, which is what loads the deeper children looked up below.
+        expect(tq.count()).toBe(6);
         expect(tq.findNode(dummyData[2].children![0])).toBeTruthy();
     });
 
