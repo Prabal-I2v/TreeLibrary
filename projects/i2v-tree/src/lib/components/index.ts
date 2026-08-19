@@ -1,2 +1,2 @@
-export * from './virtual-tree';
+export * from './tree';
 export * from './set-attrs.directive';

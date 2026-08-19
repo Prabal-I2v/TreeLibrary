@@ -1,8 +1,8 @@
 import { Component, ViewChild } from '@angular/core';
 import { ComponentFixture, TestBed, fakeAsync, tick, waitForAsync } from '@angular/core/testing';
 
-import { I2vVirtualTreeComponent } from './virtual-tree.component';
-import { DragArgs, I2vTreeConfig, TREE_ITEM_MIME } from './virtual-tree.config';
+import { I2vTreeComponent } from './tree.component';
+import { DragArgs, I2vTreeConfig, TREE_ITEM_MIME } from './tree.config';
 
 interface Item {
     name: string;
@@ -17,10 +17,10 @@ const HOST_TOP = 50;
 
 @Component({
     standalone: true,
-    imports: [I2vVirtualTreeComponent],
+    imports: [I2vTreeComponent],
     template: `
         <div [style.height.px]="viewportHeight">
-            <i2v-virtual-tree [itemHeight]="itemHeight" [config]="config" [data]="data"></i2v-virtual-tree>
+            <i2v-tree [itemHeight]="itemHeight" [config]="config" [data]="data"></i2v-tree>
         </div>
     `
 })
@@ -44,11 +44,11 @@ class HostComponent {
         { name: 'file-1' }
     ];
 
-    @ViewChild(I2vVirtualTreeComponent, { static: true })
-    public tree!: I2vVirtualTreeComponent;
+    @ViewChild(I2vTreeComponent, { static: true })
+    public tree!: I2vTreeComponent;
 }
 
-describe('I2vVirtualTreeComponent drag and drop', () => {
+describe('I2vTreeComponent drag and drop', () => {
     let fixture: ComponentFixture<HostComponent>;
     let component: HostComponent;
     let host: HTMLElement;
@@ -78,7 +78,7 @@ describe('I2vVirtualTreeComponent drag and drop', () => {
         component = fixture.componentInstance;
         host = fixture.nativeElement;
         fixture.detectChanges();
-        treeEl = host.querySelector('i2v-virtual-tree') as HTMLElement;
+        treeEl = host.querySelector('i2v-tree') as HTMLElement;
 
         // Pin the tree's viewport position so the drop geometry is deterministic. Height stays
         // truthful so invalidateSize keeps computing the same row window.
@@ -160,7 +160,7 @@ describe('I2vVirtualTreeComponent drag and drop', () => {
     });
 
     it('paints the overlay behind the rows', () => {
-        const container = host.querySelector('.vt-container')!;
+        const container = host.querySelector('.i2v-container')!;
         // Both are absolutely positioned with no z-index, so DOM order is paint order.
         expect(overlay().compareDocumentPosition(container) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });

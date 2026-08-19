@@ -1,4 +1,4 @@
-# Ooffice Virtual Tree 🥦
+# i2v Tree 🥦
 
 This is a virtual tree for Angular (requires Angular 18). It has excellent performance for 10s of thousands of items, supports search, expand/collapse all, templating, drag and drop, lazy load, keyboard navigation.
 
@@ -39,40 +39,40 @@ To summarize, this tree is built around this recipe (which works for any hierarc
 The component is standalone, so import it directly where you use it:
 
 ```typescript
-import { I2vVirtualTreeComponent } from 'i2v-tree';
+import { I2vTreeComponent } from 'i2v-tree';
 
 @Component({
   standalone: true,
-  imports: [I2vVirtualTreeComponent],
+  imports: [I2vTreeComponent],
   ...
 })
 export class MyComponent { }
 ```
 
-If you are still on NgModules, `I2vVirtualTreeModule` exports the component and works unchanged:
+If you are still on NgModules, `I2vTreeModule` exports the component and works unchanged:
 
 ```typescript
-import { I2vVirtualTreeModule } from 'i2v-tree';
+import { I2vTreeModule } from 'i2v-tree';
 
 @NgModule({
-  imports: [..., I2vVirtualTreeModule],
+  imports: [..., I2vTreeModule],
   ...
 })
 export class AppModule { }
 ```
 
 
-2. Use the `i2v-virtual-tree` component
+2. Use the `i2v-tree` component
 ```typescript
 import { Component } from '@angular/core';
-import { I2vVirtualTreeComponent } from 'i2v-tree';
+import { I2vTreeComponent } from 'i2v-tree';
 
 @Component({
     standalone: true,
-    imports: [I2vVirtualTreeComponent],
+    imports: [I2vTreeComponent],
     template: `
         <div class="container">
-            <i2v-virtual-tree [(selection)]="selectedItem" [data]="treeData"></i2v-virtual-tree>
+            <i2v-tree [(selection)]="selectedItem" [data]="treeData"></i2v-tree>
         </div>`,
     styles: [`
         .container { height: 400px; }
@@ -98,11 +98,11 @@ Project an `<ng-template>` and the tree renders that instead of its built-in row
 `Node` for the row, plus the usual `index`/`first`/`last`/`count`/`even`/`odd` context:
 
 ```html
-<i2v-virtual-tree [itemHeight]="24" [model]="model">
+<i2v-tree [itemHeight]="24" [model]="model">
     <ng-template let-node let-index="index">
         <div class="my-row">{{ index }}: {{ node.item.name }}</div>
     </ng-template>
-</i2v-virtual-tree>
+</i2v-tree>
 ```
 
 > Binding `[(selection)]` emits `selectionChange` while the parent's inputs are still being set,
@@ -118,17 +118,18 @@ now renders the built-in row when no template is projected. To migrate:
 | Before | After |
 | --- | --- |
 | `npm i of-tree` | `npm i i2v-tree` |
-| `<of-basic-tree …>` / `<of-virtual-tree …>` | `<i2v-virtual-tree …>` |
-| `OfBasicTreeComponent` / `OfVirtualTreeComponent` | `I2vVirtualTreeComponent` |
-| `OfVirtualTree` / `OfVirtualTreeModule` | `I2vVirtualTree` / `I2vVirtualTreeModule` |
+| `<of-basic-tree …>` / `<of-virtual-tree …>` | `<i2v-tree …>` |
+| `OfBasicTreeComponent` / `OfVirtualTreeComponent` | `I2vTreeComponent` |
+| `OfVirtualTree` / `OfVirtualTreeModule` | `I2vTree` / `I2vTreeModule` |
 | `VtBasicTreeConfig<T>` / `OfTreeConfig<T>` | `I2vTreeConfig<T>` |
+| `VtItemState<T>` | `I2vItemState<T>` |
 | `[ofSetAttrs]` | `[i2vSetAttrs]` |
 | `basicTree.tree.scrollTo(…)` | `tree.scrollTo(…)` — the inner `tree` handle is gone |
 
-If you style the tree, every CSS class moved from `of-` to `i2v-` as well: `of-node`,
-`of-label`, `of-selected`, `of-highlight`, `of-icon`, `of-expander`, `of-dragoverlay` and the
-icon classes all gained the new prefix. The internal layout classes `vt-container` and
-`vt-bottom-space` are unchanged.
+If you style the tree, every CSS class moved to the `i2v-` prefix: `of-node` → `i2v-node`, and
+likewise for `of-label`, `of-selected`, `of-highlight`, `of-icon`, `of-expander`, `of-dragoverlay`
+and the icon classes. The two internal layout classes were renamed as well — `vt-container` →
+`i2v-container` and `vt-bottom-space` → `i2v-bottom-space`.
 
 Cross-window drag now uses the `application/json.i2v-tree-item` dataTransfer key, so a page
 running the old build cannot exchange nodes with one running this build.

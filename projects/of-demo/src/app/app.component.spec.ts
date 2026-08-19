@@ -17,7 +17,7 @@ describe('i2v-tree demo', () => {
     let fixture: ComponentFixture<AppComponent>;
     let demo: ServerTreeDemoComponent;
 
-    const rows = () => Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('.vt-container .row'));
+    const rows = () => Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('.i2v-container .row'));
     const rowText = () => rows().map(r => (r.textContent || '').replace(/\s+/g, ' ').trim());
 
     beforeEach(waitForAsync(() => {
@@ -270,7 +270,7 @@ describe('i2v-tree demo', () => {
     it('keeps the expander visible on a matched but unloaded node during a search', () => {
         const lazy = demo.model.items.find(n => n.item.isParent && n.item.children?.length === 0)!.item;
 
-        // I2vVirtualTree.isExpandable() falls back to loaded-child count while filtered,
+        // I2vTree.isExpandable() falls back to loaded-child count while filtered,
         // which would have hidden this expander; reading isParent does not.
         demo.model.setFilter(item => item.id === lazy.id);
         fixture.detectChanges();

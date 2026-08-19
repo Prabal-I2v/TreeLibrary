@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { Node, I2vVirtualTree, I2vVirtualTreeComponent } from 'i2v-tree';
+import { Node, I2vTree, I2vTreeComponent } from 'i2v-tree';
 
 import { TreeDataModel, createTreeData, loadedDescendants } from './tree-data';
 import { matches } from './tree-backend';
@@ -20,7 +20,7 @@ export type SearchMode = 'client' | 'server';
 @Component({
     selector: 'app-server-tree-demo',
     standalone: true,
-    imports: [FormsModule, I2vVirtualTreeComponent, TreeNodeComponent, NodeToggleComponent],
+    imports: [FormsModule, I2vTreeComponent, TreeNodeComponent, NodeToggleComponent],
     templateUrl: './server-tree-demo.component.html',
     styleUrl: './server-tree-demo.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush
@@ -56,7 +56,7 @@ export class ServerTreeDemoComponent {
     });
     public readonly checkedCount = computed(() => this.checkedIds().size);
 
-    public readonly model = new I2vVirtualTree<TreeDataModel>({
+    public readonly model = new I2vTree<TreeDataModel>({
         // `isParent` is the authority, NOT children.length. Lazy servers arrive with
         // children: [] but are still expandable - that is what drives the lazy fetch.
         canExpand: item => item.isParent,

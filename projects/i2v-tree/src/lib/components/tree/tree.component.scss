@@ -6,23 +6,23 @@
     position: relative;
 }
 
-.vt-container,
-.vt-bottom-space {
+.i2v-container,
+.i2v-bottom-space {
     position: absolute;
 }
 
-.vt-container {
+.i2v-container {
     min-width: 100%;
 }
 
 // The built-in rows shrink-wrap so a vertical scrollbar cannot provoke a horizontal one.
 // Projected rows keep min-width:100% -- they rely on it for full-width hover and selection
 // backgrounds, and for pushing trailing content over with margin-left:auto.
-:host(.i2v-default-rows) .vt-container {
+:host(.i2v-default-rows) .i2v-container {
     min-width: auto;
 }
 
-.vt-bottom-space {
+.i2v-bottom-space {
     width: 1px;
     height: 1px;
 }

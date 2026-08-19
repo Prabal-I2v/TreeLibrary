@@ -1,8 +1,8 @@
 import { Component } from '@angular/core';
 import { ComponentFixture, TestBed, waitForAsync } from '@angular/core/testing';
 
-import { I2vVirtualTreeComponent } from './virtual-tree.component';
-import { I2vVirtualTree } from './virtual-tree.model';
+import { I2vTreeComponent } from './tree.component';
+import { I2vTree } from './tree.model';
 
 interface Item {
     name: string;
@@ -15,34 +15,34 @@ const ITEM_COUNT = 100;
 
 @Component({
     standalone: true,
-    imports: [I2vVirtualTreeComponent],
+    imports: [I2vTreeComponent],
     template: `
         <div [style.height.px]="viewportHeight">
-            <i2v-virtual-tree [itemHeight]="itemHeight" [model]="model">
+            <i2v-tree [itemHeight]="itemHeight" [model]="model">
                 <ng-template let-node let-index="index" let-first="first" let-last="last" let-count="count" let-even="even" let-odd="odd">
                     <div class="row" [style.height.px]="itemHeight">
                         {{ node.item.name }}|{{ index }}|{{ first }}|{{ last }}|{{ count }}|{{ even }}|{{ odd }}
                     </div>
                 </ng-template>
-            </i2v-virtual-tree>
+            </i2v-tree>
         </div>
     `
 })
 class HostComponent {
     public readonly itemHeight = ITEM_HEIGHT;
     public readonly viewportHeight = VIEWPORT_HEIGHT;
-    public model = new I2vVirtualTree<Item>({ childAccessor: item => item.children });
+    public model = new I2vTree<Item>({ childAccessor: item => item.children });
 
     constructor() {
         this.model.load(Array.from({ length: ITEM_COUNT }, (_, n) => ({ name: `item-${n}`, children: [] })));
     }
 }
 
-describe('I2vVirtualTreeComponent', () => {
+describe('I2vTreeComponent', () => {
     let fixture: ComponentFixture<HostComponent>;
     let host: HTMLElement;
 
-    const rows = () => Array.from(host.querySelectorAll('.vt-container .row'));
+    const rows = () => Array.from(host.querySelectorAll('.i2v-container .row'));
     const rowText = (i: number) => (rows()[i].textContent || '').replace(/\s+/g, ' ').trim();
 
     beforeEach(waitForAsync(() => {
@@ -68,11 +68,11 @@ describe('I2vVirtualTreeComponent', () => {
         // consumer's declaration, so @ContentChild(TemplateRef) must not match #defaultRow.
         expect(rows().length).toBeGreaterThan(1);
         expect(host.querySelector('.i2v-node')).toBeNull();
-        expect(host.querySelector('i2v-virtual-tree')!.classList.contains('i2v-default-rows')).toBe(false);
+        expect(host.querySelector('i2v-tree')!.classList.contains('i2v-default-rows')).toBe(false);
     });
 
     it('renders rows as flat siblings rather than a nested hierarchy', () => {
-        const container = host.querySelector('.vt-container');
+        const container = host.querySelector('.i2v-container');
         expect(rows().every(r => r.parentElement === container)).toBe(true);
         expect(container!.querySelector('.row .row')).toBeNull();
     });
@@ -92,7 +92,7 @@ describe('I2vVirtualTreeComponent', () => {
     });
 
     it('swaps in new rows when scrolled', () => {
-        const treeEl = host.querySelector('i2v-virtual-tree') as HTMLElement;
+        const treeEl = host.querySelector('i2v-tree') as HTMLElement;
         treeEl.scrollTop = 40 * ITEM_HEIGHT;
         treeEl.dispatchEvent(new Event('scroll'));
         fixture.detectChanges();

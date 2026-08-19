@@ -1,8 +1,8 @@
 import { EventEmitter } from '@angular/core';
 import { Node, TreeQuery, TreeConfig } from '../../models';
-import { I2vTreeConfig, TreeChildAccessor } from './virtual-tree.config';
+import { I2vTreeConfig, TreeChildAccessor } from './tree.config';
 
-export class I2vVirtualTree<ItemType> {
+export class I2vTree<ItemType> {
     private expandedItems = new Set<ItemType>();
     private highlighted?: ItemType;
     private selectedItem?: ItemType;

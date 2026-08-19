@@ -17,7 +17,7 @@ import {
     inject
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
-import { I2vVirtualTree } from './virtual-tree.model';
+import { I2vTree } from './tree.model';
 import {
     AsyncTreeChildAccessor,
     DefaultIcons,
@@ -25,8 +25,8 @@ import {
     I2vTreeConfig,
     ResolvedTreeConfig,
     TREE_ITEM_MIME,
-    VtItemState
-} from './virtual-tree.config';
+    I2vItemState
+} from './tree.config';
 import { SetAttrsDirective } from '../set-attrs.directive';
 import { Node, VirtualRenderArea } from '../../models';
 
@@ -34,14 +34,14 @@ import { Node, VirtualRenderArea } from '../../models';
 const DRAG_EXPAND_DELAY = 600;
 
 @Component({
-    selector: 'i2v-virtual-tree',
+    selector: 'i2v-tree',
     standalone: true,
     imports: [NgTemplateOutlet, SetAttrsDirective],
-    templateUrl: './virtual-tree.component.html',
-    styleUrl: './virtual-tree.component.scss',
+    templateUrl: './tree.component.html',
+    styleUrl: './tree.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class I2vVirtualTreeComponent implements AfterContentInit, AfterViewInit, OnDestroy {
+export class I2vTreeComponent implements AfterContentInit, AfterViewInit, OnDestroy {
     private readonly cdr = inject(ChangeDetectorRef);
     private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
 
@@ -51,7 +51,7 @@ export class I2vVirtualTreeComponent implements AfterContentInit, AfterViewInit,
     private viewInitialized = false;
     private initTimeout?: any;
 
-    private _model: I2vVirtualTree<any>;
+    private _model: I2vTree<any>;
     private _config: ResolvedTreeConfig<any>;
     private childAccessor: AsyncTreeChildAccessor<any> = (item: any) => item.children;
 
@@ -62,7 +62,7 @@ export class I2vVirtualTreeComponent implements AfterContentInit, AfterViewInit,
     private readonly childAccessorWrapper = (item: any) => this.getChildren(item);
 
     private loadingItems = new Set<any>();
-    private stateProvider: VtItemState<any> = Object.seal({
+    private stateProvider: I2vItemState<any> = Object.seal({
         isExpanded: (item: any) => this.model.isExpanded(item),
         isSelected: (item: any) => this.model.isSelected(item),
         isHighlighted: (item: any) => this.model.isHighlighted(item),
@@ -136,10 +136,10 @@ export class I2vVirtualTreeComponent implements AfterContentInit, AfterViewInit,
     public rowClick = new EventEmitter<{ event: MouseEvent; item: any }>();
 
     /**
-     * An instance of an I2vVirtualTree<T> configured to your dataset
+     * An instance of an I2vTree<T> configured to your dataset
      */
     @Input()
-    public set model(value: I2vVirtualTree<any>) {
+    public set model(value: I2vTree<any>) {
         this._model = value;
         this.listenToModel(value);
         // A model bound after it was loaded has already emitted onDataInvalidated, so read its
@@ -252,7 +252,7 @@ export class I2vVirtualTreeComponent implements AfterContentInit, AfterViewInit,
             move: () => Promise.resolve(),
             getDragData: () => '{}'
         };
-        this._model = new I2vVirtualTree<any>(this._config);
+        this._model = new I2vTree<any>(this._config);
         this.listenToModel(this._model);
         // Without a height the render area divides by zero and every row is "visible".
         this.renderArea.itemHeight = 1.5 * parseFloat(window.getComputedStyle(document.body).fontSize || '16');
@@ -727,7 +727,7 @@ export class I2vVirtualTreeComponent implements AfterContentInit, AfterViewInit,
         }
     }
 
-    private listenToModel(model: I2vVirtualTree<any>) {
+    private listenToModel(model: I2vTree<any>) {
         this.dispose();
         const subscriptions = [
             model.onDataInvalidated.subscribe(() => this.handleDataChange()),

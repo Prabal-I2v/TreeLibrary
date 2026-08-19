@@ -9,7 +9,7 @@ export const TREE_ITEM_MIME = 'application/json.i2v-tree-item';
 /**
  * State accessor providing behavior state given a data item
  */
-export interface VtItemState<T> {
+export interface I2vItemState<T> {
     /**
      * True if the passed item is expanded
      */
@@ -66,7 +66,7 @@ export type TreeChildAccessor<T> = (item: T) => T[] | undefined;
 
 /**
  * Children accessor a consumer may supply. Returning a promise opts the item into lazy loading:
- * the tree reports it via {@link VtItemState.isLoading} and re-reads the children once it settles.
+ * the tree reports it via {@link I2vItemState.isLoading} and re-reads the children once it settles.
  *
  * Because settling re-reads the children, the accessor must answer with the loaded array from then
  * on -- typically by storing them on the item. One that keeps returning a promise reloads forever.
@@ -80,7 +80,7 @@ export enum DefaultIcons {
 }
 
 /**
- * Configuration options for the I2vVirtualTree
+ * Configuration options for the I2vTree
  */
 export interface I2vTreeConfig<ItemType> {
     /**
@@ -115,17 +115,17 @@ export interface I2vTreeConfig<ItemType> {
      * @param node The node for the data item
      * @param state State accessor for the item, used to customize icon based on expanded, loading, selected, or highlighted state
      */
-    getIcon?(item: ItemType, node: Node<ItemType>, state: VtItemState<ItemType>): string;
+    getIcon?(item: ItemType, node: Node<ItemType>, state: I2vItemState<ItemType>): string;
     /**
      * Handler for customizing the label for tree nodes. The returned string will be used as the node text for the passed item
      * @param item The data item which the text should represent
      * @param state State accessor for the item, exposing the item's expanded, loading, selected, or highlighted state
      */
-    getName?(item: ItemType, state: VtItemState<ItemType>): string;
+    getName?(item: ItemType, state: I2vItemState<ItemType>): string;
     /**
      * @ignore
      */
-    getDomNodeAttr?(item: ItemType, node: Node<ItemType>, state: VtItemState<ItemType>): { [attr: string]: any } | undefined;
+    getDomNodeAttr?(item: ItemType, node: Node<ItemType>, state: I2vItemState<ItemType>): { [attr: string]: any } | undefined;
     /**
      * Determines whether the passed item should be draggable. Return true if the item is draggable
      * @param item The data item for which draggability should be returned

@@ -40,7 +40,7 @@
 </div>
 
 <div class="tree-container">
-    <i2v-virtual-tree [itemHeight]="itemHeight" [model]="model">
+    <i2v-tree [itemHeight]="itemHeight" [model]="model">
         <!--
             The row is its own component, and it derives its own state: expanded, selected,
             loading, checked and indeterminate are all decided by the node and the tree, so
@@ -72,7 +72,7 @@
                 </button>
             </app-tree-node>
         </ng-template>
-    </i2v-virtual-tree>
+    </i2v-tree>
 </div>
 
 <p class="stats">Selected: <code>{{ selectedPath() }}</code></p>

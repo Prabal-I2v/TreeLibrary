@@ -1,9 +1,9 @@
 import { Component, ViewChild } from '@angular/core';
 import { ComponentFixture, TestBed, fakeAsync, tick, waitForAsync } from '@angular/core/testing';
 
-import { I2vVirtualTreeComponent } from './virtual-tree.component';
-import { I2vVirtualTree } from './virtual-tree.model';
-import { I2vTreeConfig } from './virtual-tree.config';
+import { I2vTreeComponent } from './tree.component';
+import { I2vTree } from './tree.model';
+import { I2vTreeConfig } from './tree.config';
 
 interface Item {
     name: string;
@@ -17,10 +17,10 @@ const VIEWPORT_HEIGHT = 200;
 
 @Component({
     standalone: true,
-    imports: [I2vVirtualTreeComponent],
+    imports: [I2vTreeComponent],
     template: `
         <div [style.height.px]="viewportHeight">
-            <i2v-virtual-tree [itemHeight]="itemHeight" [config]="config" [data]="data"></i2v-virtual-tree>
+            <i2v-tree [itemHeight]="itemHeight" [config]="config" [data]="data"></i2v-tree>
         </div>
     `
 })
@@ -30,11 +30,11 @@ class HostComponent {
     public config: I2vTreeConfig<any> = {};
     public data: Item[] = [];
 
-    @ViewChild(I2vVirtualTreeComponent, { static: true })
-    public tree!: I2vVirtualTreeComponent;
+    @ViewChild(I2vTreeComponent, { static: true })
+    public tree!: I2vTreeComponent;
 }
 
-describe('I2vVirtualTreeComponent built-in row', () => {
+describe('I2vTreeComponent built-in row', () => {
     // Functions, not literals, so every test gets a fresh mutable copy.
     const treeData = (): Item[] => [
             { name: 'folder-0', type: 'Folder', children: [{ name: 'child-0' }, { name: 'child-1' }] },
@@ -74,7 +74,7 @@ describe('I2vVirtualTreeComponent built-in row', () => {
         render(treeData());
 
         expect(nodes().length).toBe(3);
-        expect(host.querySelector('i2v-virtual-tree')!.classList.contains('i2v-default-rows')).toBe(true);
+        expect(host.querySelector('i2v-tree')!.classList.contains('i2v-default-rows')).toBe(true);
     });
 
     it('labels rows from item.name by default and from config.getName when given', () => {
@@ -123,7 +123,7 @@ describe('I2vVirtualTreeComponent built-in row', () => {
         });
         expect(nodes()[0].getAttribute('data-first')).toBe('yes');
 
-        const treeEl = host.querySelector('i2v-virtual-tree') as HTMLElement;
+        const treeEl = host.querySelector('i2v-tree') as HTMLElement;
         treeEl.scrollTop = 40 * ITEM_HEIGHT;
         treeEl.dispatchEvent(new Event('scroll'));
         fixture.detectChanges();
@@ -267,7 +267,7 @@ describe('I2vVirtualTreeComponent built-in row', () => {
     it('detaches the previous model when a new one is bound', () => {
         render(treeData());
         const replaced = component.tree.model,
-            fresh = new I2vVirtualTree<Item>({ childAccessor: (item: Item) => item.children });
+            fresh = new I2vTree<Item>({ childAccessor: (item: Item) => item.children });
 
         fresh.load([{ name: 'only' }]);
         component.tree.model = fresh;
@@ -283,14 +283,14 @@ describe('I2vVirtualTreeComponent built-in row', () => {
 
 @Component({
     standalone: true,
-    imports: [I2vVirtualTreeComponent],
+    imports: [I2vTreeComponent],
     template: `
         <div [style.height.px]="viewportHeight">
-            <i2v-virtual-tree [itemHeight]="itemHeight" [config]="config" [data]="data">
+            <i2v-tree [itemHeight]="itemHeight" [config]="config" [data]="data">
                 <ng-template let-node>
                     <div class="row" [style.height.px]="itemHeight">{{ node.item.name }}</div>
                 </ng-template>
-            </i2v-virtual-tree>
+            </i2v-tree>
         </div>
     `
 })
@@ -307,7 +307,7 @@ class ProjectedHostComponent {
     public data: Item[] = [{ name: 'projected-0' }, { name: 'projected-1' }];
 }
 
-describe('I2vVirtualTreeComponent row template selection', () => {
+describe('I2vTreeComponent row template selection', () => {
     it('never renders a frame of built-in rows before the projected template resolves', waitForAsync(async () => {
         await TestBed.configureTestingModule({ imports: [ProjectedHostComponent] }).compileComponents();
 

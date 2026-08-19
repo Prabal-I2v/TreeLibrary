@@ -5,13 +5,13 @@ import * as C from './components';
  * The components are standalone, so you can import them directly:
  *
  * ```ts
- * imports: [I2vVirtualTreeComponent]
+ * imports: [I2vTreeComponent]
  * ```
  *
  * This module is kept so existing NgModule based apps keep working unchanged.
  */
 @NgModule({
-    imports: [C.I2vVirtualTreeComponent, C.SetAttrsDirective],
-    exports: [C.I2vVirtualTreeComponent, C.SetAttrsDirective]
+    imports: [C.I2vTreeComponent, C.SetAttrsDirective],
+    exports: [C.I2vTreeComponent, C.SetAttrsDirective]
 })
-export class I2vVirtualTreeModule {}
+export class I2vTreeModule {}
