@@ -1,4 +1,5 @@
 import { I2vTree } from './tree.model';
+import { I2vTreeConfig } from './tree.config';
 
 interface Item {
     id: number;
@@ -80,5 +81,52 @@ describe('I2vTree', () => {
 
         vt.expandAll();
         expect(navigate(vt, ...commands)).toEqual(highlightSequence);
+    });
+});
+
+describe('I2vTree checks integration', () => {
+    interface Row {
+        id: string;
+        children?: Row[];
+    }
+
+    const data = (): Row[] => [{ id: 'a', children: [{ id: 'a1' }, { id: 'a2' }] }, { id: 'b' }];
+
+    function build(config: Partial<I2vTreeConfig<Row>> = {}) {
+        const model = new I2vTree<Row>({ childAccessor: r => r.children, keyOf: r => r.id, ...config });
+        model.load(data());
+        return model;
+    }
+
+    it('exposes a check model attached to the tree', () => {
+        const model = build(),
+            a = model.items[0].item;
+
+        model.checks.setChecked(a, true);
+
+        expect(model.checks.getState(a)).toBe('checked');
+        expect(model.checks.getCheckedItems().map(i => i.id).sort()).toEqual(['a', 'a1', 'a2']);
+    });
+
+    it('keeps check state across a reload of equal-but-new items', () => {
+        const model = build();
+        model.checks.setChecked(model.items[0].item, true);
+
+        model.load(data());
+
+        expect(model.checks.isChecked(model.items[0].item)).toBe(true);
+    });
+
+    it('promotes parents when eagerly loaded', () => {
+        const model = build({ lazyLoad: false });
+        model.expandAll();
+
+        const a1 = model.items.find(n => n.item.id === 'a1')!.item,
+            a2 = model.items.find(n => n.item.id === 'a2')!.item;
+
+        model.checks.setChecked(a1, true);
+        model.checks.setChecked(a2, true);
+
+        expect(model.checks.getState(model.items[0].item)).toBe('checked');
     });
 });

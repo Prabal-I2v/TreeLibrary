@@ -69,6 +69,15 @@ export class VirtualRenderArea {
     }
 
     private invalidateViewRange() {
+        // A zero height would make every derived value NaN or Infinity, which renders as either no
+        // rows at all or every row at once. Report an empty window instead and wait for a height.
+        if (this._itemHeight <= 0) {
+            this._visibleStart = 0;
+            this._visibleCount = 0;
+            this._topBuffer = 0;
+            return;
+        }
+
         const maxItems = Math.ceil(this._viewerHeight / this._itemHeight) + 1;
 
         this._visibleStart = Math.floor(this._scrollPos / this._itemHeight);

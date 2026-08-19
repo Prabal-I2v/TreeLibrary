@@ -92,6 +92,41 @@
     outline: solid 1px orange;
 }
 
+// Image-path icons, for data carrying icon URLs rather than CSS classes.
+.i2v-icon-img {
+    width: 1rem;
+    height: 1rem;
+    display: block;
+    object-fit: contain;
+    flex: 0 0 auto;
+}
+
+.i2v-checkbox {
+    margin: 0 0.25rem 0 0;
+    flex: 0 0 auto;
+    cursor: pointer;
+}
+
+// Spans of a label matching the active filter. Rendered as real elements rather than injected
+// markup, so a search term can never carry HTML into the row.
+.i2v-match {
+    background: #ffe08a;
+    font-weight: 600;
+}
+
+.i2v-disabled {
+    opacity: 0.5;
+
+    .i2v-node-title,
+    .i2v-checkbox {
+        cursor: default;
+    }
+
+    .i2v-label:hover {
+        background: none;
+    }
+}
+
 .i2v-dragoverlay {
     position: absolute;
     background: #c9def5;

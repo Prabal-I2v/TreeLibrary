@@ -1,0 +1,111 @@
+@if (showHeader) {
+    <div class="i2v-tv-header">
+        @if (title) {
+            <span class="i2v-tv-title">{{ title }}</span>
+        }
+
+        <span class="i2v-tv-spacer"></span>
+
+        @if (showCount) {
+            <span class="i2v-tv-count" [attr.title]="getCountSummary()" aria-hidden="true">i</span>
+        }
+
+        @if (configNames.length) {
+            <button type="button" class="i2v-tv-btn i2v-tv-config" (click)="configMenu.emit({ event: $event })">
+                {{ selectedConfigName || 'Configuration' }}
+            </button>
+        }
+
+        @if (showExpandToggle) {
+            <button
+                type="button"
+                class="i2v-tv-btn i2v-tv-expand"
+                [class.i2v-tv-expanded]="isExpanded"
+                [attr.title]="expandToggleLabel"
+                [attr.aria-label]="expandToggleLabel"
+                [attr.aria-pressed]="isExpanded"
+                (click)="toggleExpandAll()"
+            ></button>
+        }
+
+        @if (showRefresh) {
+            <button
+                type="button"
+                class="i2v-tv-btn i2v-tv-refresh"
+                title="Refresh"
+                aria-label="Refresh"
+                (click)="handleRefresh()"
+            ></button>
+        }
+    </div>
+}
+
+@if (showSearch) {
+    <div class="i2v-tv-search">
+        <input
+            type="search"
+            class="i2v-tv-search-input"
+            role="searchbox"
+            [attr.placeholder]="searchPlaceholder"
+            [attr.aria-label]="searchPlaceholder"
+            [value]="searchText"
+            (input)="handleSearchInput($any($event.target).value)"
+        />
+
+        @if (searchFields.length > 1) {
+            <button
+                type="button"
+                class="i2v-tv-btn i2v-tv-searchby"
+                title="Search by"
+                aria-label="Search by"
+                (click)="searchByMenu.emit({ event: $event })"
+            ></button>
+        }
+    </div>
+}
+
+<div class="i2v-tv-body">
+    <!--
+        Hidden rather than removed: destroying the tree would throw away its scroll position and
+        expand state every time a search happened to match nothing.
+    -->
+    <!--
+        Always rendered and never display:none. A hidden element measures zero height, so the tree
+        would size its viewport to a single row and never recover once rows arrived. The state
+        messages simply sit over it, and they only ever show when the tree has nothing to draw.
+    -->
+    <i2v-tree
+        [config]="config"
+        [data]="data"
+        [selection]="selection"
+        [ariaLabel]="ariaLabel"
+        [itemHeight]="itemHeight ?? 0"
+        (selectionChange)="selectionChange.emit($event)"
+        (itemContextMenu)="itemContextMenu.emit($event)"
+        (itemDblClick)="itemDblClick.emit($event)"
+        (rowClick)="rowClick.emit($event)"
+        (checkChange)="checkChange.emit($event)"
+        [rowTemplate]="rowTemplate?.template"
+        [rowPrefixTemplate]="rowPrefix?.template"
+        [rowSuffixTemplate]="rowSuffix?.template"
+    >
+    </i2v-tree>
+
+    @if (loading) {
+        <div class="i2v-tv-state i2v-tv-loading" role="status">
+            <ng-container *ngTemplateOutlet="loadingTemplate ?? defaultLoading"></ng-container>
+        </div>
+    } @else if (isNoResult) {
+        <div class="i2v-tv-state i2v-tv-noresult" role="status">
+            <ng-container *ngTemplateOutlet="noResultTemplate ?? defaultNoResult"></ng-container>
+        </div>
+    } @else if (isEmpty) {
+        <div class="i2v-tv-state i2v-tv-empty" role="status">
+            <ng-container *ngTemplateOutlet="emptyTemplate ?? defaultEmpty"></ng-container>
+        </div>
+    }
+</div>
+
+<ng-template #defaultLoading>{{ loadingText }}</ng-template>
+<ng-template #defaultNoResult>{{ noResultText }}</ng-template>
+<ng-template #defaultEmpty>{{ emptyText }}</ng-template>

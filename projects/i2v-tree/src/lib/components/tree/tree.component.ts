@@ -21,6 +21,7 @@ import { I2vTree } from './tree.model';
 import {
     AsyncTreeChildAccessor,
     DefaultIcons,
+    DragArgs,
     DragPos,
     I2vTreeConfig,
     ResolvedTreeConfig,
@@ -28,10 +29,14 @@ import {
     I2vItemState
 } from './tree.config';
 import { SetAttrsDirective } from '../set-attrs.directive';
-import { Node, VirtualRenderArea } from '../../models';
+import { I2vTreeRowDirective, I2vTreeRowPrefixDirective, I2vTreeRowSuffixDirective } from './tree.templates';
+import { I2vTreeEditor, I2vTreeSearch, Node, VirtualRenderArea } from '../../models';
 
 /** How long to hover over a collapsed node during a drag before it opens */
 const DRAG_EXPAND_DELAY = 600;
+
+/** How long a type-ahead buffer survives between keystrokes */
+const TYPEAHEAD_RESET = 1000;
 
 @Component({
     selector: 'i2v-tree',
@@ -70,17 +75,70 @@ export class I2vTreeComponent implements AfterContentInit, AfterViewInit, OnDest
     });
 
     private _filterText: string | undefined = '';
+    private _highlightTerm: string | undefined;
     private filterTextThrottle?: any;
 
     private ownId = Math.random().toString();
     private ownDragItem?: Node<any>;
     private dragExpand: { item?: Node<any>; timeout?: any } = {};
 
+    private typeaheadBuffer = '';
+    private typeaheadTimeout?: any;
+
+    /** Prefix for row DOM ids, unique per component instance so two trees cannot collide. */
+    private readonly instanceId = `i2v-tree-${(I2vTreeComponent.instanceCounter = I2vTreeComponent.instanceCounter + 1)}`;
+    private static instanceCounter = 0;
+
     /**
      * @ignore
      */
     @HostBinding('tabIndex')
     public tabIndex = 0;
+
+    /**
+     * Marks the container as a tree for assistive technology. Rows carry `role="treeitem"`.
+     * @ignore
+     */
+    @HostBinding('attr.role')
+    public readonly role = 'tree';
+
+    /**
+     * @ignore
+     */
+    @HostBinding('attr.aria-multiselectable')
+    public get ariaMultiselectable() {
+        return this.config.selectionMode === 'multiple' ? 'true' : null;
+    }
+
+    /**
+     * Points at the highlighted row so a screen reader follows the keyboard cursor without the tree
+     * having to move real DOM focus between recycled rows.
+     * @ignore
+     */
+    @HostBinding('attr.aria-activedescendant')
+    public get ariaActiveDescendant() {
+        const item = this.model.getHighlightedItem();
+        return item === undefined ? null : this.getRowId(item);
+    }
+
+    /**
+     * Accessible name for the tree as a whole.
+     */
+    @Input()
+    @HostBinding('attr.aria-label')
+    public ariaLabel: string | null = null;
+
+    /**
+     * Stable per-row DOM id, needed by `aria-activedescendant`. Derived from the item's key when one
+     * is configured, so it survives row recycling; otherwise from the row's position.
+     * @ignore
+     */
+    public getRowId(item: any) {
+        const keyOf = this.config.keyOf,
+            key = keyOf ? keyOf(item) : this.model.getItemIndex(item);
+        // Keys can be anything, including strings with spaces, so anything not id-safe is replaced.
+        return `${this.instanceId}-row-${String(key).replace(/[^\w-]/g, '_')}`;
+    }
 
     /**
      * @ignore
@@ -97,7 +155,75 @@ export class I2vTreeComponent implements AfterContentInit, AfterViewInit, OnDest
      * @ignore
      */
     @ContentChild(TemplateRef)
-    public template?: TemplateRef<any>;
+    public bareTemplate?: TemplateRef<any>;
+
+    /**
+     * The row template when declared with the `i2vTreeRow` directive, which is the typed form.
+     * @ignore
+     */
+    @ContentChild(I2vTreeRowDirective)
+    public rowDirective?: I2vTreeRowDirective;
+
+    /** @ignore */
+    @ContentChild(I2vTreeRowPrefixDirective)
+    public rowPrefix?: I2vTreeRowPrefixDirective;
+
+    /** @ignore */
+    @ContentChild(I2vTreeRowSuffixDirective)
+    public rowSuffix?: I2vTreeRowSuffixDirective;
+
+    /**
+     * The row template in force. The directive form wins; the bare `<ng-template>` is still honoured
+     * so templates written before the directive existed keep working.
+     *
+     * A prefix or suffix template is not a row template, and `@ContentChild(TemplateRef)` would
+     * otherwise match whichever came first in the markup and render it as the whole row.
+     * @ignore
+     */
+    /**
+     * Row template supplied as an input rather than projected.
+     *
+     * Preferred when a wrapper component holds the template, because anything placed inside
+     * `<i2v-tree>` to select between templates -- an `@if`, an `*ngIf` -- compiles to an
+     * `<ng-template>` that the untagged content query cannot distinguish from a row template.
+     */
+    @Input()
+    public rowTemplate?: TemplateRef<any>;
+
+    /** Prefix slot supplied as an input. See {@link rowTemplate}. */
+    @Input()
+    public rowPrefixTemplate?: TemplateRef<any>;
+
+    /** Suffix slot supplied as an input. See {@link rowTemplate}. */
+    @Input()
+    public rowSuffixTemplate?: TemplateRef<any>;
+
+    public get template(): TemplateRef<any> | undefined {
+        if (this.rowTemplate) {
+            return this.rowTemplate;
+        }
+        if (this.rowDirective) {
+            return this.rowDirective.template;
+        }
+        // Once any slot is in play the consumer is on the explicit API, so the untagged query is
+        // ignored entirely. It cannot tell a row template apart from a slot -- or from the template
+        // a control-flow block compiles to -- and guessing wrong renders that as the row.
+        if (this.rowPrefix || this.rowSuffix || this.rowPrefixTemplate || this.rowSuffixTemplate) {
+            return undefined;
+        }
+
+        return this.bareTemplate;
+    }
+
+    /** @ignore Resolved prefix slot, from the input or the projected directive. */
+    public get prefixTemplate(): TemplateRef<any> | undefined {
+        return this.rowPrefixTemplate ?? this.rowPrefix?.template;
+    }
+
+    /** @ignore Resolved suffix slot, from the input or the projected directive. */
+    public get suffixTemplate(): TemplateRef<any> | undefined {
+        return this.rowSuffixTemplate ?? this.rowSuffix?.template;
+    }
 
     /**
      * @ignore
@@ -134,6 +260,43 @@ export class I2vTreeComponent implements AfterContentInit, AfterViewInit, OnDest
      */
     @Output()
     public rowClick = new EventEmitter<{ event: MouseEvent; item: any }>();
+
+    /**
+     * Double click on a tree row
+     */
+    @Output()
+    public itemDblClick = new EventEmitter<{ event: MouseEvent; item: any }>();
+
+    /**
+     * Enter pressed on the highlighted row. Separate from selection, because activating a row
+     * ("open this") is a different intent from selecting it.
+     */
+    @Output()
+    public itemActivate = new EventEmitter<{ event: KeyboardEvent; item: any }>();
+
+    /**
+     * Escape pressed within the tree. Lets a host close a popup without the tree knowing about it.
+     */
+    @Output()
+    public escape = new EventEmitter<KeyboardEvent>();
+
+    /**
+     * The keyboard cursor moved to a different row
+     */
+    @Output()
+    public activeItemChange = new EventEmitter<any>();
+
+    /**
+     * A row's check state changed
+     */
+    @Output()
+    public checkChange = new EventEmitter<{ item: any; checked: boolean }>();
+
+    /**
+     * A row was expanded or collapsed
+     */
+    @Output()
+    public expandChange = new EventEmitter<{ item: any; expanded: boolean }>();
 
     /**
      * An instance of an I2vTree<T> configured to your dataset
@@ -212,10 +375,63 @@ export class I2vTreeComponent implements AfterContentInit, AfterViewInit, OnDest
     }
 
     /**
+     * Term to highlight in row labels, without filtering.
+     *
+     * Separate from {@link filterText}, which both filters and highlights. A wrapper that applies
+     * its own filter -- a search box choosing which field to match -- needs the highlight without a
+     * second, competing filter being scheduled behind it.
+     */
+    @Input()
+    public set highlightTerm(value: string | undefined) {
+        this._highlightTerm = value;
+        this.cdr.markForCheck();
+    }
+    public get highlightTerm() {
+        return this._highlightTerm;
+    }
+
+    /**
      * returns true if filterText or a filter function is applied
      */
     public get isFiltered() {
         return this.model.isFiltered();
+    }
+
+    /**
+     * Index of the first rendered row within the whole flattened tree.
+     * @ignore
+     */
+    public get visibleStart() {
+        return this.renderArea.visibleStart;
+    }
+
+    /**
+     * Row state accessors, exposed to templates so a custom row can read expanded/selected/loading
+     * without reaching into the model.
+     * @ignore
+     */
+    public get itemState(): I2vItemState<any> {
+        return this.stateProvider;
+    }
+
+    /**
+     * Build the context handed to the prefix and suffix slot templates. Matches the row context, so
+     * one template can be moved between the three positions unchanged.
+     * @ignore
+     */
+    public rowContext(node: Node<any>, index: number, absoluteIndex: number) {
+        const count = this.model.items.length;
+        return {
+            $implicit: node,
+            index,
+            absoluteIndex,
+            count,
+            first: absoluteIndex === 0,
+            last: absoluteIndex === count - 1,
+            even: absoluteIndex % 2 === 0,
+            odd: absoluteIndex % 2 === 1,
+            state: this.stateProvider
+        };
     }
 
     /**
@@ -249,8 +465,15 @@ export class I2vTreeComponent implements AfterContentInit, AfterViewInit, OnDest
             lazyLoad: true,
             canDrag: () => false,
             canDrop: () => false,
-            move: () => Promise.resolve(),
-            getDragData: () => '{}'
+            // Actually performs the move against the consumer's own arrays. A no-op default would
+            // mean drag and drop appears to work and silently changes nothing.
+            move: args => this.defaultMove(args),
+            getDragData: () => '{}',
+            selectionMode: 'single',
+            expandMode: 'multi',
+            checkboxes: false,
+            highlightMatches: true,
+            allowedDropPositions: ['before', 'on', 'after']
         };
         this._model = new I2vTree<any>(this._config);
         this.listenToModel(this._model);
@@ -298,15 +521,81 @@ export class I2vTreeComponent implements AfterContentInit, AfterViewInit, OnDest
      */
     @HostListener('keydown', ['$event'])
     public handleKeydown(evt: KeyboardEvent) {
+        const highlighted = this.model.getHighlightedItem();
+
         if (evt.key === 'Enter') {
             this.model.selectHighlightedItem();
-        } else if (evt.key.startsWith('Arrow')) {
-            const direction = evt.key.replace('Arrow', ''),
+            if (highlighted !== undefined) {
+                this.itemActivate.emit({ event: evt, item: highlighted });
+            }
+            evt.preventDefault();
+            return;
+        }
+
+        if (evt.key === ' ' || evt.key === 'Spacebar') {
+            // Space toggles the check when checkboxes are on, matching the platform convention for
+            // a multi-select list; otherwise it falls back to expanding, as zTree did.
+            if (highlighted !== undefined) {
+                if (this.config.checkboxes) {
+                    this.toggleCheck(highlighted);
+                } else {
+                    this.model.toggle(highlighted);
+                }
+            }
+            // Always prevented: space would otherwise scroll the container out from under the user.
+            evt.preventDefault();
+            return;
+        }
+
+        if (evt.key === 'Escape') {
+            this.escape.emit(evt);
+            return;
+        }
+
+        if (evt.key === 'ContextMenu' || (evt.key === 'F10' && evt.shiftKey)) {
+            if (highlighted !== undefined) {
+                this.itemContextMenu.emit({ event: evt as unknown as MouseEvent, item: highlighted });
+                evt.preventDefault();
+            }
+            return;
+        }
+
+        if (evt.key === 'Home' || evt.key === 'End' || evt.key.startsWith('Arrow')) {
+            const direction = evt.key.startsWith('Arrow') ? evt.key.replace('Arrow', '') : evt.key,
                 nextHighlightedIndex = this.model.navigate(direction);
 
             if (nextHighlightedIndex !== undefined) {
                 this.scrollToIndex(nextHighlightedIndex);
+                this.activeItemChange.emit(this.model.getHighlightedItem());
             }
+            evt.preventDefault();
+            return;
+        }
+
+        this.handleTypeahead(evt);
+    }
+
+    /**
+     * Jump to a row by typing its first letters.
+     *
+     * Only single printable characters with no modifier qualify, so shortcuts such as ctrl+A are
+     * left to the host. The buffer resets after a pause, which is what makes repeatedly pressing one
+     * letter cycle through matches instead of searching for a run of that letter.
+     */
+    private handleTypeahead(evt: KeyboardEvent) {
+        const printable = evt.key.length === 1 && !evt.ctrlKey && !evt.metaKey && !evt.altKey;
+        if (!printable) {
+            return;
+        }
+
+        clearTimeout(this.typeaheadTimeout);
+        this.typeaheadBuffer += evt.key;
+        this.typeaheadTimeout = setTimeout(() => (this.typeaheadBuffer = ''), TYPEAHEAD_RESET);
+
+        const at = this.model.typeahead(this.typeaheadBuffer, item => this.getName(item));
+        if (at !== undefined) {
+            this.scrollToIndex(at);
+            this.activeItemChange.emit(this.model.getHighlightedItem());
             evt.preventDefault();
         }
     }
@@ -449,8 +738,117 @@ export class I2vTreeComponent implements AfterContentInit, AfterViewInit, OnDest
 
     /** @ignore */
     public handleRowClick(evt: MouseEvent, item: any) {
-        this.model.selectAndHighlight(item);
+        if (this.isDisabled(item)) {
+            return;
+        }
+        this.model.selectWithModifiers(item, { ctrl: evt.ctrlKey || evt.metaKey, shift: evt.shiftKey });
         this.rowClick.emit({ event: evt, item });
+    }
+
+    /** @ignore */
+    public handleRowDblClick(evt: MouseEvent, item: any) {
+        this.itemDblClick.emit({ event: evt, item });
+    }
+
+    /**
+     * Toggle a row's expand state, reporting the result. Public so a consumer template can drive the
+     * built-in expander from its own markup.
+     */
+    public toggleExpand(item: any) {
+        this.model.toggle(item);
+        this.expandChange.emit({ item, expanded: this.model.isExpanded(item) });
+    }
+
+    /**
+     * Toggle a row's check state. Public for the same reason as {@link toggleExpand}.
+     */
+    public toggleCheck(item: any) {
+        if (!this.canCheck(item)) {
+            return;
+        }
+        this.model.checks.toggle(item);
+        this.checkChange.emit({ item, checked: this.model.checks.isChecked(item) });
+    }
+
+    /** @ignore */
+    public handleCheckboxClick(evt: Event, item: any) {
+        // The row underneath must not select on a checkbox click: picking an item and looking at it
+        // are different intents, and a checkbox click means only the former.
+        evt.stopPropagation();
+        this.toggleCheck(item);
+    }
+
+    /** True if the item may carry a checkbox. zTree's per-node `nocheck`. */
+    public canCheck(item: any) {
+        return this.config.check?.canCheck ? this.config.check.canCheck(item) : true;
+    }
+
+    /** @ignore */
+    public isChecked(item: any) {
+        return this.model.checks.isChecked(item);
+    }
+
+    /** @ignore */
+    public isIndeterminate(item: any) {
+        return this.model.checks.getState(item) === 'indeterminate';
+    }
+
+    /** True if the item cannot be selected or activated. */
+    public isDisabled(item: any) {
+        return this.config.isDisabled ? this.config.isDisabled(item) : false;
+    }
+
+    /**
+     * The label split into matched and unmatched segments for the active text filter.
+     *
+     * Returned as data rather than markup: the template renders each segment as its own element, so
+     * highlighting never goes through innerHTML the way zTree's `nameIsHTML` did.
+     */
+    public getNameSegments(item: any) {
+        const name = this.getName(item),
+            term = this._highlightTerm ?? this._filterText;
+
+        if (!this.config.highlightMatches || !term) {
+            return [{ text: name, match: false }];
+        }
+
+        return I2vTreeSearch.getSegments(name, term);
+    }
+
+    /** @ignore Image-path icon, for data that carries icon URLs rather than CSS classes. */
+    public getIconUrl(node: Node<any>) {
+        return this.config.getIconUrl ? this.config.getIconUrl(node.item, node, this.stateProvider) : undefined;
+    }
+
+    /** @ignore */
+    public getTitle(item: any) {
+        return this.config.getTitle ? this.config.getTitle(item) : undefined;
+    }
+
+    /**
+     * 1-based position of a row among its siblings, for `aria-posinset`.
+     * @ignore
+     */
+    public getPosInSet(node: Node<any>) {
+        return node.index + 1;
+    }
+
+    /**
+     * Number of siblings a row has, for `aria-setsize`. Falls back to -1 ("unknown") when the parent
+     * is not loaded, which is the correct ARIA answer rather than a guess.
+     * @ignore
+     */
+    public getSetSize(node: Node<any>) {
+        return node.parent && node.parent.childrenLoaded ? node.parent.children.length : -1;
+    }
+
+    /**
+     * `aria-expanded` for a row, or undefined for leaves -- the attribute must be absent on a node
+     * that cannot expand, not set to false.
+     * @ignore
+     */
+    public getAriaExpanded(item: any): boolean | undefined {
+        return this.model.isExpandable(item) ? this.model.isExpanded(item) : undefined;
     }
 
     /** @ignore */
@@ -560,6 +958,25 @@ export class I2vTreeComponent implements AfterContentInit, AfterViewInit, OnDest
         }
     }
 
+    /**
+     * Built-in move: splices the item between the children arrays the tree was given.
+     *
+     * Only usable when the data is plain nested arrays reachable through `childAccessor`. Consumers
+     * whose data lives elsewhere -- a store, a server -- override `config.move`.
+     */
+    private defaultMove(args: DragArgs<any>): Promise<void> {
+        const editor = new I2vTreeEditor<any>(
+            {
+                childAccessor: item => this.childAccessor(item) as any[] | undefined,
+                setChildren: (item, children) => (item.children = children)
+            },
+            () => this.model.query.getRootNode().children.map(n => n.item)
+        );
+
+        editor.move(args.item, args.parent, args.index, this.model.query);
+        return Promise.resolve();
+    }
+
     private async move(item: any, parent: Node<any>, index: number | undefined) {
         const itemNode = item instanceof Node ? item : undefined,
             itemData = itemNode ? itemNode.item : item,
@@ -625,7 +1042,9 @@ export class I2vTreeComponent implements AfterContentInit, AfterViewInit, OnDest
             flatIndex = Math.floor((yPos + scroll) / this.itemHeight),
             itemPos = flatIndex * this.itemHeight - scroll,
             buffer = this.itemHeight / 4,
-            area: DragPos = itemPos + buffer > yPos ? 'before' : itemPos + this.itemHeight - buffer < yPos ? 'after' : 'on',
+            area = this.constrainDropPosition(
+                itemPos + buffer > yPos ? 'before' : itemPos + this.itemHeight - buffer < yPos ? 'after' : 'on'
+            ),
             itemAtIndex = this.model.items[flatIndex],
             itemIndex =
                 !itemAtIndex || !itemAtIndex.parent
@@ -638,6 +1057,22 @@ export class I2vTreeComponent implements AfterContentInit, AfterViewInit, OnDest
             item = !itemAtIndex ? undefined : area === 'on' ? itemAtIndex : itemAtIndex.parent;
 
         return { flatIndex, itemIndex, item, area };
+    }
+
+    /**
+     * Fold a computed drop position down to one the config permits.
+     *
+     * A tree restricted to `['on']` -- zTree's reparent-only mode -- should treat the edge bands of a
+     * row as "drop onto it" rather than refusing the drop, so the whole row stays a valid target.
+     */
+    private constrainDropPosition(area: DragPos): DragPos {
+        const allowed = this.config.allowedDropPositions;
+
+        if (!allowed || !allowed.length || allowed.includes(area)) {
+            return area;
+        }
+
+        return allowed.includes('on') ? 'on' : allowed[0];
     }
 
     private getDragData(item: any) {
@@ -700,6 +1135,9 @@ export class I2vTreeComponent implements AfterContentInit, AfterViewInit, OnDest
             this.clearTextFilter();
         }
         this._filterText = value;
+        // Match highlighting reads the term directly, so it updates before the throttled filter
+        // runs. Nothing else marks this OnPush view dirty when the input is set imperatively.
+        this.cdr.markForCheck();
     }
 
     private setTextFilter(value: string) {
@@ -737,7 +1175,10 @@ export class I2vTreeComponent implements AfterContentInit, AfterViewInit, OnDest
                 this.cdr.markForCheck();
                 this.selectionChange.emit(item);
             }),
-            model.onHighlightChanged.subscribe(() => this.cdr.markForCheck())
+            model.onHighlightChanged.subscribe(() => this.cdr.markForCheck()),
+            // Same reason: checking a box changes no row's existence, so without this a tri-state
+            // checkbox driven from code never repaints.
+            model.checks.onCheckStateChanged.subscribe(() => this.cdr.markForCheck())
         ];
         this.disposers.push(() => subscriptions.forEach(s => s.unsubscribe()));
     }

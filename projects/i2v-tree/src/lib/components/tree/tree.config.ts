@@ -1,4 +1,4 @@
-import { Node } from '../../models';
+import { I2vCheckConfig, I2vSelectionMode, Node } from '../../models';
 
 /**
  * The dataTransfer key carrying a dragged tree item. Written on dragstart and read back on
@@ -97,6 +97,51 @@ export interface I2vTreeConfig<ItemType> {
      */
     lazyLoad?: boolean;
     /**
+     * Stable identity for an item. Lets state outlive a reload into equal-but-not-identical objects,
+     * and lets check state be restored for items that have not been loaded yet.
+     */
+    keyOf?: (item: ItemType) => unknown;
+    /**
+     * Options for the tree's tri-state check model, {@link I2vTree.checks}
+     */
+    check?: I2vCheckConfig<ItemType>;
+    /**
+     * How many rows may be selected at once. Defaults to 'single'.
+     */
+    selectionMode?: I2vSelectionMode;
+    /**
+     * 'accordion' keeps a single branch open at each level, collapsing siblings on expand -- zTree's
+     * `singlePath` behaviour. Defaults to 'multi'.
+     */
+    expandMode?: 'multi' | 'accordion';
+    /**
+     * Returns true for items that cannot be selected or activated. Such rows are still rendered and
+     * still expand, but are marked `aria-disabled` and ignore clicks.
+     */
+    isDisabled?: (item: ItemType) => boolean;
+    /**
+     * Render a checkbox on every row. Off by default, so existing consumers are unaffected.
+     */
+    checkboxes?: boolean;
+    /**
+     * Wrap the parts of a row label matching the active text filter in `.i2v-match`. On by default.
+     */
+    highlightMatches?: boolean;
+    /**
+     * Icon as an image URL rather than a CSS class, for data that carries icon paths. Takes
+     * precedence over {@link I2vTreeConfig.getIcon} when it returns a value.
+     */
+    getIconUrl?(item: ItemType, node: Node<ItemType>, state: I2vItemState<ItemType>): string | undefined;
+    /**
+     * Native tooltip text for a row.
+     */
+    getTitle?(item: ItemType): string | undefined;
+    /**
+     * Which drop positions the tree accepts. Defaults to all three; set to `['on']` for zTree's
+     * reparent-only behaviour.
+     */
+    allowedDropPositions?: DragPos[];
+    /**
      * Number of milliseconds to wait before applying the after change of input [filterText] or [filter] handler
      */
     filterThrottle?: number;
@@ -154,5 +199,7 @@ export interface I2vTreeConfig<ItemType> {
  * its *presence* — defaulting it would silently change what counts as expandable.
  * @ignore
  */
-export type ResolvedTreeConfig<ItemType> = Required<Omit<I2vTreeConfig<ItemType>, 'canExpand'>> &
-    Pick<I2vTreeConfig<ItemType>, 'canExpand'>;
+type OptionalConfigKeys = 'canExpand' | 'keyOf' | 'check' | 'isDisabled' | 'getIconUrl' | 'getTitle';
+
+export type ResolvedTreeConfig<ItemType> = Required<Omit<I2vTreeConfig<ItemType>, OptionalConfigKeys>> &
+    Pick<I2vTreeConfig<ItemType>, OptionalConfigKeys>;
